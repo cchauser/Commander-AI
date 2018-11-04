@@ -82,13 +82,12 @@ class minmaxAI(object):
 
     def get_move(self, originalPacket, lookAheadLimit=1, recursionStep = 0):
         bestMove = [-np.inf, 0, 0]
-        leastHarmfulMove = [np.inf, 0, 0]
         for magnitude in range(11):
             for direction in range(36):
                 endState = False
                 packet = deepcopy(originalPacket)
                 
-                direction *= 10
+                direction = (direction % (360 / self.angleStepSize)) * self.angleStepSize
                 dX, dY = self.get_dXdY(magnitude, direction, packet[0][3])
                 packet[0][4] += dX
                 packet[0][5] += dY
@@ -103,10 +102,11 @@ class minmaxAI(object):
                     i = 0
                     nextOpponentInPacket = len(packet) #Position of next opponent in packet
                     currTeam = packet[0][0]
+                    currArmyDead = False
                     while i < len(packet):
                         packet[i][1] -= dmgArray[i]
                         if packet[i][1] <= 0:
-                            if i == 0:
+                            if i == 0 and not currArmyDead:
                                 Score -= 10 #Penalize for losing an army
                             else:
                                 Score += 10 #Reward for destroying army
@@ -128,11 +128,6 @@ class minmaxAI(object):
                         #Everybody is dead, no score increase but set as endState
                         endState = True
                         
-#                    print(packet)
-#                    print(dmgArray)
-#                    print(Score, magnitude, direction)
-#                    input()
-                    
                     #Prune
                     if Score < bestMove[0]:
                         continue
@@ -147,10 +142,10 @@ class minmaxAI(object):
                         packet[0][-1] = 0
                         for i in range(1, len(packet)):
                             packet[i][-2] = utilities.get_distance(packet[0], packet[i])
-                            packet[i][-1] = utilities.get_relative_direction(packet[0], packet[i])
+                            packet[i][-1] = utilities.get_absolute_direction(packet[0], packet[i])
                            
                         #Subtract the opponent's best move from our best move's score
-                        Score -= self.get_move(packet, lookAheadLimit, recursionStep + 1)[0]
+                        Score -= self.maxMove(packet, lookAheadLimit, recursionStep + 1)[0]
                     
                 #If this is a leaf node there's no need to prepare for recursion. Just get the score
                 else:
@@ -160,10 +155,11 @@ class minmaxAI(object):
                     i = 0
                     nextOpponentInPacket = len(packet)
                     currTeam = packet[0][0]
+                    currArmyDead = False
                     while i < len(packet):
                         packet[i][1] -= dmgArray[i]
                         if packet[i][1] <= 0:
-                            if i == 0:
+                            if i == 0 and not currArmyDead:
                                 Score -= 10 #Penalize for losing an army
                             else:
                                 Score += 10 #Reward for destroying army

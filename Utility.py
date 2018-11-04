@@ -58,11 +58,9 @@ class Utility(object):
         inputString[1] = int(inputString[1])
         return inputString
 
-    def get_team_strengths(self, redTeam, blueTeam):
-        rStr = 0
-        for army in redTeam.armies:
-            rStr += army.strength
-        bStr = 0
-        for army in blueTeam.armies:
-            bStr += army.strength
-        return rStr, bStr
+    def get_team_strengths(self, teamArray):
+        strengths = np.zeros(len(teamArray))
+        for i in range(len(teamArray)):
+            for unit in teamArray[i].get_armies():
+                strengths[i] += unit.strength
+        return strengths

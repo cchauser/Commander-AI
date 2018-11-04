@@ -12,6 +12,9 @@ import math
 import random
 from copy import deepcopy
 
+
+np.random.RandomState(1210542) #Mag seed
+
 class LSTM(object):
     def __init__(self, model, numClasses, bType, hidden_dim = 64, bptt_truncate = 6):
         self.modelName = model
@@ -19,6 +22,9 @@ class LSTM(object):
         self.hidden_dim = hidden_dim
         self.bptt_truncate = bptt_truncate
         self.bType = bType
+        
+        
+        
         try:
             print("Loading model...")
             db = shelve.open("{0}/{0}DB".format(model), "r")
@@ -55,14 +61,22 @@ class LSTM(object):
             d = np.zeros(numClasses)
             
             #Layer 1
-            U_in = np.random.uniform(-np.sqrt(1./self.hidden_dim), np.sqrt(1./self.hidden_dim), (self.hidden_dim, self.hidden_dim))
-            U_forget = np.random.uniform(-np.sqrt(1./self.hidden_dim), np.sqrt(1./self.hidden_dim), (self.hidden_dim, self.hidden_dim))
-            U_out = np.random.uniform(-np.sqrt(1./self.hidden_dim), np.sqrt(1./self.hidden_dim), (self.hidden_dim, self.hidden_dim))
-            U_cand = np.random.uniform(-np.sqrt(1./self.hidden_dim), np.sqrt(1./self.hidden_dim), (self.hidden_dim, self.hidden_dim))
-            W_in = np.random.uniform(-np.sqrt(1./self.hidden_dim), np.sqrt(1./self.hidden_dim), (self.hidden_dim, self.hidden_dim))
-            W_forget = np.random.uniform(-np.sqrt(1./self.hidden_dim), np.sqrt(1./self.hidden_dim), (self.hidden_dim, self.hidden_dim))
-            W_out = np.random.uniform(-np.sqrt(1./self.hidden_dim), np.sqrt(1./self.hidden_dim), (self.hidden_dim, self.hidden_dim))
-            W_cand = np.random.uniform(-np.sqrt(1./self.hidden_dim), np.sqrt(1./self.hidden_dim), (self.hidden_dim, self.hidden_dim))
+#            U_in = np.random.uniform(-np.sqrt(1./self.hidden_dim), np.sqrt(1./self.hidden_dim), (self.hidden_dim, self.hidden_dim))
+#            U_forget = np.random.uniform(-np.sqrt(1./self.hidden_dim), np.sqrt(1./self.hidden_dim), (self.hidden_dim, self.hidden_dim))
+#            U_out = np.random.uniform(-np.sqrt(1./self.hidden_dim), np.sqrt(1./self.hidden_dim), (self.hidden_dim, self.hidden_dim))
+#            U_cand = np.random.uniform(-np.sqrt(1./self.hidden_dim), np.sqrt(1./self.hidden_dim), (self.hidden_dim, self.hidden_dim))
+#            W_in = np.random.uniform(-np.sqrt(1./self.hidden_dim), np.sqrt(1./self.hidden_dim), (self.hidden_dim, self.hidden_dim))
+#            W_forget = np.random.uniform(-np.sqrt(1./self.hidden_dim), np.sqrt(1./self.hidden_dim), (self.hidden_dim, self.hidden_dim))
+#            W_out = np.random.uniform(-np.sqrt(1./self.hidden_dim), np.sqrt(1./self.hidden_dim), (self.hidden_dim, self.hidden_dim))
+#            W_cand = np.random.uniform(-np.sqrt(1./self.hidden_dim), np.sqrt(1./self.hidden_dim), (self.hidden_dim, self.hidden_dim))
+            U_in = np.random.uniform(-np.sqrt(1./self.hidden_dim), np.sqrt(1./self.hidden_dim), (1, self.hidden_dim))
+            U_forget = np.random.uniform(-np.sqrt(1./self.hidden_dim), np.sqrt(1./self.hidden_dim), (1, self.hidden_dim))
+            U_out = np.random.uniform(-np.sqrt(1./self.hidden_dim), np.sqrt(1./self.hidden_dim), (1, self.hidden_dim))
+            U_cand = np.random.uniform(-np.sqrt(1./self.hidden_dim), np.sqrt(1./self.hidden_dim), (1, self.hidden_dim))
+            W_in = np.random.uniform(-np.sqrt(1./self.hidden_dim), np.sqrt(1./self.hidden_dim), (1, self.hidden_dim))
+            W_forget = np.random.uniform(-np.sqrt(1./self.hidden_dim), np.sqrt(1./self.hidden_dim), (1, self.hidden_dim))
+            W_out = np.random.uniform(-np.sqrt(1./self.hidden_dim), np.sqrt(1./self.hidden_dim), (1, self.hidden_dim))
+            W_cand = np.random.uniform(-np.sqrt(1./self.hidden_dim), np.sqrt(1./self.hidden_dim), (1, self.hidden_dim))
             b_in = np.zeros((self.hidden_dim))
             b_forget = np.zeros((self.hidden_dim))
             b_out = np.zeros((self.hidden_dim))
@@ -140,19 +154,25 @@ class LSTM(object):
         
         #Gate calculations; these modulate how much of the previous layer's data is used
         #The sigmoid function squishes the values to between 0 and 1 (effectively a percentage value)
-        f_g = T.nnet.sigmoid(T.dot(self.W_forget, x_) + T.dot(self.U_forget, o_Prev) + self.b_forget) #256,1
-        i_g = T.nnet.sigmoid(T.dot(self.W_in, x_) + T.dot(self.U_in, o_Prev) + self.b_in)
-        o_g = T.nnet.sigmoid(T.dot(self.W_out, x_) + T.dot(self.U_out, o_Prev) + self.b_out)
+#        f_g = T.nnet.sigmoid(T.dot(self.W_forget, x_) + T.dot(self.U_forget, o_Prev) + self.b_forget) #256,1
+#        i_g = T.nnet.sigmoid(T.dot(self.W_in, x_) + T.dot(self.U_in, o_Prev) + self.b_in)
+#        o_g = T.nnet.sigmoid(T.dot(self.W_out, x_) + T.dot(self.U_out, o_Prev) + self.b_out)
+        f_g = T.nnet.sigmoid(self.W_forget * x_ + self.U_forget * o_Prev + self.b_forget) #256,1
+        i_g = T.nnet.sigmoid(self.W_in * x_ + self.U_in * o_Prev + self.b_in)
+        o_g = T.nnet.sigmoid(self.W_out * x_ + self.U_out * o_Prev + self.b_out)
+
 
         #Candidate value for the cell memory that runs along the neural network
-#        C_c = T.nnet.nnet.softsign(T.dot(self.W_cand, x_) + T.dot(self.U_cand, o_Prev) +  self.b_cand) #Softmax activation
-        C_c = T.dot(self.W_cand, x_) + T.dot(self.U_cand, o_Prev) +  self.b_cand #Linear activation
+#        C_c = T.nnet.nnet.softsign(T.dot(self.W_cand, x_) + T.dot(self.U_cand, o_Prev) +  self.b_cand) #Softsign activation
+#        C_c = T.dot(self.W_cand, x_) + T.dot(self.U_cand, o_Prev) +  self.b_cand #Linear activation
+        C_c = self.W_cand * x_ + self.U_cand * o_Prev +  self.b_cand #Linear activation
 #        C_c = T.switch(C_c < 0, C_c * .01, C_c) #Leaky ReLU activation
         
         #New cell value actual
         C = i_g * C_c + f_g * C_Prev
 
         #Cell output
+#        o = T.nnet.nnet.softsign(o_g * C) * 5 #Softsign output activation. Multiplied by 5 so sigmoid can reach extremes
         o = o_g * C #Linear output activation
 
         return o, C
@@ -168,8 +188,8 @@ class LSTM(object):
         [o, C], updates = theano.scan(self._step,
                                       sequences=x,
                                       truncate_gradient = self.bptt_truncate,
-                                      outputs_info=[theano.shared(value = np.zeros(self.hidden_dim).astype(theano.config.floatX)),
-                                                    theano.shared(value = np.ones(self.hidden_dim).astype(theano.config.floatX))])
+                                      outputs_info=[theano.shared(value = np.zeros((1,self.hidden_dim)).astype(theano.config.floatX)),
+                                                    theano.shared(value = np.ones((1,self.hidden_dim)).astype(theano.config.floatX))])
 
         gameState = o[-1] # The gamestate as the nerual network sees it
 
@@ -179,11 +199,11 @@ class LSTM(object):
         
         #Calculate nerual network output layer and error
         if self.bType == 'dir':
-#            pred_error = T.sum(T.abs_(((y - pred_Prob) + .5) % 1 - .5))
-            pred_error = T.sum(T.abs_(y-pred_Prob))
+            pred_error = T.sum((((y - pred_Prob) + .5) % 1 - .5)**2)
+#            pred_error = T.sum((y-pred_Prob)**2)
         else:
 #            pred_Prob = T.nnet.softmax(T.dot(gameState, self.V) + self.d)[0]#returns a 2d matrix with one row. so just take that row
-            pred_error = T.sum(T.abs_(pred_Prob - y))
+            pred_error = T.sum((pred_Prob - y)**2)
 
         move = pred_Prob
                                
@@ -320,7 +340,7 @@ class LSTM(object):
     def dClass(self, y):
         return y / 360
 
-    def learning_step(self, x, y, learnRate, t, returnError = False):
+    def learning_step(self, x, y, learnRate, t, heading = None, returnError = False):
         if self.bType == 'mag':
             y_ = self.mClass(y)
         elif self.bType == 'dir':
@@ -329,19 +349,21 @@ class LSTM(object):
             raise Exception("UNKNOWN TYPE")
             
         x_ = np.asarray(x)
+        if heading:
+            x_[0][6] = heading
         
         self.adam_step(x_, y_, learnRate, t)
         
-        move = self.get_move(x_)
+        move = self.get_move(x_)[0][0]
         if not returnError:
             if self.bType == 'dir':
                 return move * 360
             else:
                 return move * 10
         else:
-            return self.ce_error(x_, y_)
+            return np.sqrt(self.ce_error(x_, y_))
     
-    def get_error(self, x, y):
+    def get_error(self, x, y, heading = None):
         if self.bType == 'mag':
             y_ = self.mClass(y)
         elif self.bType == 'dir':
@@ -350,12 +372,16 @@ class LSTM(object):
             raise Exception("UNKNOWN TYPE")
             
         x_ = np.asarray(x)
+        if heading:
+            x_[0][6] = heading
         
-        return self.ce_error(x_, y_)
+        return np.sqrt(self.ce_error(x_, y_))
 
-    def nnet_move(self, packet):
+    def nnet_move(self, packet, heading = None):
+        if heading and self.bType == 'mag':
+            packet[0][6] = heading
         packet_ = np.asarray(packet)
-        move = self.get_move(packet_)
+        move = self.get_move(packet_)[0][0]
         if self.bType == 'dir':
             return move * 360
         else:

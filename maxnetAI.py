@@ -15,10 +15,11 @@ from Utility import Utility
 utilities = Utility()
 
 class maxnetAI(object):
-    def __init__(self, magModel = 'magBrain', dirModel = 'dirBrain', recursionLimit = 2, calibrationSet = None):
+    def __init__(self, magModel = 'magBrain', dirModel = 'dirBrain', recursionLimit = 2, angleStepSize = 5, calibrationSet = None):
         self.recursionLimit = recursionLimit
-        self.magWindow = -1
-        self.dirWindow = -1
+        self.angleStepSize = angleStepSize
+        self.magWindow = 3
+        self.dirWindow = 7
         
         print("Loading magBrain")
         self.magBrain = LSTM(magModel, 1, 'mag')
@@ -26,14 +27,14 @@ class maxnetAI(object):
         self.dirBrain = LSTM(dirModel, 1, 'dir')
         print("DONE")
         
-        if calibrationSet:
+        if calibrationSet and (self.magWindow == -1 and self.dirWindow == -1):
             if type(calibrationSet) == list:
-                self.calibrateMax(packetList = calibrationSet)
+                self.calibrateWindow(packetList = calibrationSet)
             else:
-                self.calibrateMax(databaseName = calibrationSet)
+                self.calibrateWindow(databaseName = calibrationSet)
             
         
-    def calibrateMax(self, databaseName = None, packetList = None):
+    def calibrateWindow(self, databaseName = None, packetList = None):
         calibrationSet = []
         if databaseName:
             db = shelve.open("{0}/{0}DB".format(databaseName), "r")
@@ -52,16 +53,16 @@ class maxnetAI(object):
         dirTotal = 0
 
         for packet in calibrationSet:
-            nnetMag = round(self.magBrain.nnet_move(packet)[0])
-            nnetDir = round(self.dirBrain.nnet_move(packet)[0])
+            nnetDir = round(self.dirBrain.nnet_move(packet))
+            nnetMag = round(self.magBrain.nnet_move(packet, heading = nnetDir))
             
             minmaxMove = self.maxMove(packet, 1)[1:]
             
             magTotal += max(nnetMag, minmaxMove[0]) - min(nnetMag, minmaxMove[0])
             dirTotal += max(nnetDir, minmaxMove[1]) - min(nnetDir, minmaxMove[1])
             
-        self.magWindow = int(np.ceil(magTotal / len(calibrationSet))) + 1
-        self.dirWindow = int(np.ceil(dirTotal / len(calibrationSet))/10) + 3
+        self.magWindow = int(np.ceil(magTotal / len(calibrationSet)))
+        self.dirWindow = int(np.ceil(dirTotal / len(calibrationSet))/self.angleStepSize)
         
         print(self.magWindow, self.dirWindow)
                 
@@ -72,24 +73,23 @@ class maxnetAI(object):
             
     def maxMove(self, originalPacket, lookAheadLimit, recursionStep = 0):
         bestMove = [-np.inf, 0, 0]
-        if self.magWindow != -1:
-            nnetMag = int(round(self.magBrain.nnet_move(originalPacket)[0]))
+        if self.magWindow != -1 or self.dirWindow != -1:
+            nnetDir = int(round(self.dirBrain.nnet_move(originalPacket)/self.angleStepSize))
+            dirRange = (nnetDir-self.dirWindow, nnetDir+self.dirWindow+1)
+            
+            nnetMag = int(round(self.magBrain.nnet_move(originalPacket, heading = nnetDir*self.angleStepSize)))
             magRange = (max(nnetMag-self.magWindow,0), min(11,nnetMag+self.magWindow+1))
         else:
-            magRange = (0,11)
-        if self.dirWindow != -1:
-            nnetDir = int(round(self.dirBrain.nnet_move(originalPacket)[0]))
-            dirRange = (nnetDir-self.dirWindow, nnetDir+self.dirWindow+1)
-        else:
-            dirRange = (0,36)
-            
+            dirRange = (0,360/self.angleStepSize)
+            magRange = (0,11)            
+        
         
         for magnitude in range(magRange[0], magRange[1]):
             for direction in range(dirRange[0], dirRange[1]):
                 endState = False
                 packet = deepcopy(originalPacket)
                 
-                direction = (direction % 36) * 10
+                direction = (direction % (360 / self.angleStepSize)) * self.angleStepSize
                 dX, dY = self.get_dXdY(magnitude, direction, packet[0][3])
                 packet[0][4] += dX
                 packet[0][5] += dY
@@ -104,10 +104,11 @@ class maxnetAI(object):
                     i = 0
                     nextOpponentInPacket = len(packet) #Position of next opponent in packet
                     currTeam = packet[0][0]
+                    currArmyDead = False
                     while i < len(packet):
                         packet[i][1] -= dmgArray[i]
                         if packet[i][1] <= 0:
-                            if i == 0:
+                            if i == 0 and not currArmyDead:
                                 Score -= 10 #Penalize for losing an army
                             else:
                                 Score += 10 #Reward for destroying army
@@ -143,7 +144,7 @@ class maxnetAI(object):
                         packet[0][-1] = 0
                         for i in range(1, len(packet)):
                             packet[i][-2] = utilities.get_distance(packet[0], packet[i])
-                            packet[i][-1] = utilities.get_relative_direction(packet[0], packet[i])
+                            packet[i][-1] = utilities.get_absolute_direction(packet[0], packet[i])
                            
                         #Subtract the opponent's best move from our best move's score
                         Score -= self.maxMove(packet, lookAheadLimit, recursionStep + 1)[0]
@@ -156,10 +157,11 @@ class maxnetAI(object):
                     i = 0
                     nextOpponentInPacket = len(packet)
                     currTeam = packet[0][0]
+                    currArmyDead = False
                     while i < len(packet):
                         packet[i][1] -= dmgArray[i]
                         if packet[i][1] <= 0:
-                            if i == 0:
+                            if i == 0 and not currArmyDead:
                                 Score -= 10 #Penalize for losing an army
                             else:
                                 Score += 10 #Reward for destroying army
@@ -233,6 +235,7 @@ class maxnetAI(object):
         #[Team, Str, fireRange, moveSpeed, x, y, heading, distance, direction]
         #  0     1       2         3       4  5     6        7          8
         dmgArray = np.zeros(len(packet))
+#        bonusScore = 0
         for i in range(1, len(packet)):
             if packet[i][0] == packet[0][0]:
                 continue
@@ -252,7 +255,6 @@ class maxnetAI(object):
             
             dmgArray[i] += dmgDone
             dmgArray[0] += dmgTaken
-##        if dDone > 0:
-##            print("DAMAGE CALC", dDone - dTaken)
-        Score =  np.sum(dmgArray[1:]) - dmgArray[0]
+#            bonusScore += ((Attacker * Bonus) * 2) - (Bonus - Attacker)
+        Score =  np.sum(dmgArray[1:]) - dmgArray[0]# + bonusScore
         return Score, np.sum(dmgArray[1:]), dmgArray

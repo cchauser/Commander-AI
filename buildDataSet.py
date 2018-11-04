@@ -9,6 +9,7 @@ import random
 import shelve
 import os
 from Engine import Engine
+from maxnetAI import maxnetAI
 
 def shuffle(data):
     new = []
@@ -20,22 +21,59 @@ def shuffle(data):
 
 def mergeData(file1, file2):
     db = shelve.open("{0}/{0}DB".format(file1), "w")
-    data1 = db['data']
+    data1 = db['data1']
     
     db2 = shelve.open("{0}/{0}DB".format(file2), "r")
     data2 = db2['data']   
     db2.close()
+    
+#    data = []
+    
+#    for item in data1:
+#        if item in data2:
+#            continue
+#        data.append(item)
         
     data = data1 + data2
     
-    db['data'] = data
+    db['data2'] = data
     
     db.close()
     
-
-def cleanData(fileName):
+def relabelData(fileName):
     db = shelve.open("{0}/{0}DB".format(fileName), "r")
     data = db['data']
+    db.close()
+    print("relabeling {} data points.".format(len(data)))
+    maxnet = maxnetAI()
+    
+    for i in range(len(data)):
+        try:
+            move = maxnet.get_move(data[i][0])
+            data[i][-1] = move
+            print(i, len(data))
+        except KeyboardInterrupt:
+            try:
+                db = shelve.open("{0}/{0}DB".format(fileName), "r")
+                db.close()
+            except:
+                try:
+                    os.makedirs('{0}'.format(fileName))
+                except:
+                    pass
+                db = shelve.open("{0}/{0}DB".format(fileName), 'c')
+                db.close()
+            finally:
+                print("SAVING DATA")
+                db = shelve.open("{0}/{0}DB".format(fileName), "w")
+                db['data1'] = data
+                db.close()
+            break
+    
+
+def cleanData(fileName):
+    db = shelve.open("{0}/{0}DB".format(fileName), "w")
+    data = db['data2']
         
     #Count the number of classes for the data
     numMagData = np.zeros(11)
@@ -47,10 +85,10 @@ def cleanData(fileName):
             numDirData[round(item[-1][1]/10)] += 1
         except:
             numDirData[0] += 1
-    numMagTrain = round(np.min(numMagData) * .85)
-    numDirTrain = round(np.min(numDirData) * .85)
-    numMagVer = 40
-    numDirVer = 12
+    numMagTrain = round(np.min(numMagData) * .7)
+    numDirTrain = round(np.min(numDirData) * .7)
+    numMagVer = 65
+    numDirVer = 20
     
     t = 0
     while True:
@@ -99,11 +137,11 @@ def cleanData(fileName):
         
         if np.max(numMagTrainArray) - np.min(numMagTrainArray) < 5 and np.max(numDirTrainArray) - np.min(numDirTrainArray) < 5:
             break
-        elif t > 30:
+        elif t > 100:
             break
         else:
-            numMagTrain = round(np.average(numMagTrainArray))
-            numDirTrain = round(np.average(numDirTrainArray))
+            numMagTrain = np.floor(np.average(numMagTrainArray))
+            numDirTrain = np.floor(np.average(numDirTrainArray))
             t += 1
             
     #Shuffle the training data
@@ -118,9 +156,9 @@ def cleanData(fileName):
 
 def buildDataSet(fileName):
     data = []
-    redSize = random.randint(1,2)
-    blueSize = random.randint(1,2)
-    engine = Engine(redSize, blueSize, 'minmax', 'minmax')
+    sizeArray = [random.randint(1,2), random.randint(1,2)]
+    controllers = ['minmax', 'minmax']
+    engine = Engine(sizeArray, controllers)
     numMag = [0] * 11
     numDir = [0] * 36
     magTarget = 720
@@ -140,9 +178,8 @@ def buildDataSet(fileName):
             print(numMag)
             print(numDir)
             
-            redSize = random.randint(1,2)
-            blueSize = random.randint(1,2)
-            engine.reset(redSize, blueSize, 'minmax', 'minmax', allowRandom = True)
+            sizeArray = [random.randint(1,2), random.randint(1,2)]
+            engine.reset(sizeArray, controllers, allowRandom = True)
         except KeyboardInterrupt:
             try:
                 db = shelve.open("{0}/{0}DB".format(fileName), "r")
@@ -155,11 +192,15 @@ def buildDataSet(fileName):
                 db = shelve.open("{0}/{0}DB".format(fileName), 'c')
                 db.close()
             finally:
+                print("SAVING DATA")
                 db = shelve.open("{0}/{0}DB".format(fileName), "w")
                 db['data'] = data
                 db.close()
             break
     
 if __name__ == "__main__":
-    buildDataSet('good_data2')
-#    cleanData('good_data')
+#    buildDataSet('good_data5')
+#    mergeData('data', 'good_data')
+#    relabelData('data')
+    
+    cleanData('data')

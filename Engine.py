@@ -13,87 +13,97 @@ from Utility import Utility
 utilities = Utility()
 
 class Engine(object):
-    def __init__(self, redTeamSize, blueTeamSize, redController = "minmax", blueController = "minmax", nnet_train = True):
+    def __init__(self, armySizeArray, controllerArray, nnet_train = False):
         self.graphics = graphicsEngine()
-        self.redController = redController
-        self.blueController = blueController
+        armySizeArray = np.asarray(armySizeArray)
+        self.Controllers = controllerArray
         self.nnet_train = nnet_train
         self.t = 1 # This is for the neural network training
+        self.teamArray = []
         
-        self.redTeam = Team(0, redTeamSize, 20, 0)
-        self.blueTeam = Team(1, blueTeamSize, -20, redTeamSize)
+        totalSoldiers = 0
+        for i in range(len(armySizeArray)):
+            spawn = [20 * (len(armySizeArray) - 2) * (-1)**i, 20 * (len(armySizeArray) -1) * (-1)**i]
+            self.teamArray.append(Team(i, armySizeArray[i], spawn, totalSoldiers))
+            totalSoldiers += armySizeArray[i]
 
         self.turnOrder = []
-        redC = 0
-        blueC = 0
-        while len(self.turnOrder) < redTeamSize + blueTeamSize:
-            if redC < len(self.redTeam.armies):
-                self.turnOrder.append(self.redTeam[redC])
-                redC += 1
-            if blueC < len(self.blueTeam.armies):
-                self.turnOrder.append(self.blueTeam[blueC])
-                blueC += 1
+        totalArmies = np.sum(armySizeArray)
+        armySizeArray -= 1 #Set up for pulling armies out of team arrays
+        while len(self.turnOrder) < totalArmies:
+            for i in range(len(self.teamArray)):
+                if armySizeArray[i] < 0:
+                    continue
+                self.turnOrder.append(self.teamArray[i][armySizeArray[i]])
+                armySizeArray[i] -= 1
 
         self.minmaxAI = minmaxAI()
         self.dumbAI = dumbAI()
         self.randAI = randAI()
-        if 'neurnet' in [redController, blueController]:
+        if 'neurnet' in controllerArray:
             self.neurnetAI = neurnetAI(11, 36)
-        if 'maxnet' in [redController, blueController]:
-            self.maxnetAI = maxnetAI(calibrationSet = 'good_data')
-#        self.graphics.drawState(self.redTeam, self.blueTeam)
+        if 'maxnet' in controllerArray:
+            self.maxnetAI = maxnetAI(calibrationSet = 'data')
+        self.adjustHeadingsForStartOfGame()
+        self.graphics.drawState(self.teamArray[0], self.teamArray[1]) #TODO: more than 2 team compatibility
 
-    def reset(self, redTeamSize, blueTeamSize, redController = "minmax", blueController = "minmax", allowRandom = False):
-        self.redController = redController
-        self.blueController = blueController
+    def reset(self, armySizeArray, controllerArray, allowRandom = False):
         
         if allowRandom:
-            randomSpawn = random.randint(0,2) #Random spawns occur when value != 0
+            randomSpawn = random.randint(0,1) #Random spawns occur when value != 0
         else:
             randomSpawn = 0
-        self.redTeam = Team(0, redTeamSize, 20, 0, randomSpawn)
-        self.blueTeam = Team(1, blueTeamSize, -20, redTeamSize, randomSpawn)
+            
+        armySizeArray = np.asarray(armySizeArray)
+        self.Controllers = controllerArray
+        self.teamArray = []
+        
+        totalSoldiers = 0
+        for i in range(len(armySizeArray)):
+            spawn = [20 * (len(armySizeArray) - 2) * (-1)**i, 20 * (len(armySizeArray) -1) * (-1)**i]
+            self.teamArray.append(Team(i, armySizeArray[i], spawn, totalSoldiers, randomSpawn))
+            totalSoldiers += armySizeArray[i]
 
         self.turnOrder = []
-        redC = 0
-        blueC = 0
-        while len(self.turnOrder) < redTeamSize + blueTeamSize:
-            if redC < len(self.redTeam.armies):
-                self.turnOrder.append(self.redTeam[redC])
-                redC += 1
-            if blueC < len(self.blueTeam.armies):
-                self.turnOrder.append(self.blueTeam[blueC])
-                blueC += 1
+        totalArmies = np.sum(armySizeArray)
+        armySizeArray -= 1 #Set up for pulling armies out of team arrays
+        while len(self.turnOrder) < totalArmies:
+            for i in range(len(self.teamArray)):
+                if armySizeArray[i] < 0:
+                    continue
+                self.turnOrder.append(self.teamArray[i][armySizeArray[i]])
+                armySizeArray[i] -= 1
                 
-        self.graphics.drawState(self.redTeam, self.blueTeam)
+        self.adjustHeadingsForStartOfGame()
+        self.graphics.drawState(self.teamArray[0], self.teamArray[1]) #TODO: more than 2 team compatibility
 
     def gameLoop(self):
         elapsedTurns = 0
         
-        initialRedStr, initialBlueStr = utilities.get_team_strengths(self.redTeam, self.blueTeam)
+        initialStrength = utilities.get_team_strengths(self.teamArray)
         
-        while(((len(self.redTeam.armies) > 0) and (len(self.blueTeam.armies) > 0)) and elapsedTurns < 10):
+        while((not self.checkEndState()) and elapsedTurns < 10):
             print("\n\n=====TURN {}=====".format(elapsedTurns))
                         
             packet = self.createDataPacket() #Minmax algorithm uses relative direction so need to use a packet that has relative direction
             utilities.printPacket(packet)
             
-            if packet[0][0] == 0:
-                controller = self.redController
-            elif packet[0][0] == 1:
-                controller = self.blueController
+            controller = self.Controllers[packet[0][0]]
                 
             #Minmax
             if controller == "minmax":
-                AIMove = self.minmaxAI.get_move(packet)[1:]
+                Move = self.minmaxAI.get_move(packet)[1:]
             #dumbAI
             elif controller == "dumbai":
-                AIMove = self.dumbAI.get_move(packet)
+                Move = self.dumbAI.get_move(packet)
             #random ai
             elif controller == "randai":
-                AIMove = self.randAI.get_move()
+                Move = self.randAI.get_move()
             elif controller == "maxnet":
-                AIMove = self.maxnetAI.get_move(packet)
+                Move = self.maxnetAI.get_move(packet)
+            elif(controller == "human"):
+                inputString = input("Move? ")
+                Move = utilities.parseHumanMove(inputString)
             #Neural network
             elif controller == "neurnet":
                 if self.nnet_train:
@@ -106,37 +116,36 @@ class Engine(object):
                             mmMove = self.dumbAI.get_move(packet)
                     print(mmMove)
                     self.neurnetAI.learning_step(packet, mmMove)
-                    AIMove = mmMove
+                    Move = mmMove
                 else:
-                    AIMove = self.neurnetAI.get_move(packet)
+                    Move = self.neurnetAI.get_move(packet)
 
-            print(AIMove)
-            magnitude = AIMove[0]
-            direction = AIMove[1]
+            print(Move)
+            magnitude = Move[0]
+            direction = Move[1]
 
             self.turnOrder[0].move(magnitude, direction)
 
             isDead = self.calculateCombat(self.turnOrder[0])
             if not isDead:
                 self.prepNextTurn()
-            self.graphics.drawState(self.redTeam, self.blueTeam)
+            self.graphics.drawState(self.teamArray[0], self.teamArray[1]) #TODO: more than 2 team compatibility
             elapsedTurns += 1
 
-            #Check if end state
-            rStr, bStr = utilities.get_team_strengths(self.redTeam, self.blueTeam)
-            if self.checkEndState():
-                return [[initialRedStr, initialBlueStr], [rStr, bStr]]
 
-        #Return results if out of loop
-        rStr, bStr = utilities.get_team_strengths(self.redTeam, self.blueTeam)
-        return [[initialRedStr, initialBlueStr], [rStr, bStr]]
+        #Return results of battle
+        endStrength = utilities.get_team_strengths(self.teamArray)
+        return [initialStrength, endStrength]
     
     def checkEndState(self):
-        rStr, bStr = utilities.get_team_strengths(self.redTeam, self.blueTeam)
-        if rStr <= 0 or bStr <= 0:
-            return True
-        else:
-            return False
+        strengths = utilities.get_team_strengths(self.teamArray)
+        numCombatantTeams = 0
+        for s in strengths:
+            if s > 0:
+                numCombatantTeams += 1
+            if numCombatantTeams > 1:
+                return False
+        return True
 
 
     def calculateCombat(self, unit):
@@ -236,7 +245,22 @@ class Engine(object):
     
     def save_model(self):
         self.Brain.save_model()
-        
+    
+    def adjustHeadingsForStartOfGame(self):
+        for unit in self.turnOrder:
+            totalHeading = 0
+            numUnits = 0
+            for otherUnit in self.turnOrder:
+                if otherUnit == unit:
+                    continue
+                elif otherUnit.get_unitTeam() == unit.get_unitTeam():
+                    continue
+                else:
+                    totalHeading += utilities.get_absolute_direction(unit, otherUnit)
+                    numUnits += 1
+            newHeading = (totalHeading // numUnits) + random.randint(-15,15) #Some randomness in initial heading 
+            unit.set_heading(newHeading)
+                    
     def doOneTurn(self):
         packet = self.createDataPacket() #Minmax algorithm uses relative direction so need to use a packet that has relative direction
         

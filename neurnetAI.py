@@ -5,6 +5,8 @@ Created on Sat Oct 13 16:05:38 2018
 @author: Cullen
 """
 
+from copy import deepcopy
+
 import pandas as pd
 import numpy as np
 import random
@@ -12,9 +14,11 @@ import shelve
 
 from LSTM import LSTM
 
+random.seed(89894756)
+
 class neurnetAI(object):
     def __init__(self, magClasses, dirClasses):
-        self.lRate = .001
+        self.lRate = .005
         print("Loading magBrain")
         self.magBrain = LSTM('magBrain', 1, 'mag')
         print("DONE\n\nLoading dirBrain")
@@ -75,8 +79,8 @@ class neurnetAI(object):
         self.dirBrain.save_model()
         
     def get_move(self, packet):
-        AIMag = round(self.magBrain.nnet_move(packet)[0])
-        AIDir = round(self.dirBrain.nnet_move(packet)[0])
+        AIDir = round(self.dirBrain.nnet_move(packet))
+        AIMag = round(self.magBrain.nnet_move(packet, heading = AIDir))
         
         return [AIMag, AIDir]
         
@@ -99,7 +103,7 @@ class neurnetAI(object):
             print("ERROR LOADING DATA")
          
         t = 1
-        print("\nData loaded found:")
+        print("\nData loaded. Found:")
         print("{} training points".format(len(trainData)))
         print("{} verification points".format(len(verData)))
         print("Training model...")
@@ -109,22 +113,22 @@ class neurnetAI(object):
         
         for epoch in range(1,51):
             try:
-                trainData = shuffleData(trainData)
+#                trainData = shuffleData(trainData)
                 magError = 0
                 dirError = 0
                 verMagError = 0
                 verDirError = 0
                 for i in range(len(trainData)):
-                    magError += self.magBrain.learning_step(trainData[i][0], trainData[i][-1][0], self.lRate, t, returnError = True)
                     dirError += self.dirBrain.learning_step(trainData[i][0], trainData[i][-1][1], self.lRate, t, returnError = True)
+                    magError += self.magBrain.learning_step(trainData[i][0], trainData[i][-1][0], self.lRate, t, heading = trainData[i][-1][1], returnError = True)
                 
                 magError /= i
                 dirError /= i
                 trainError = magError + dirError
                 
                 for i in range(len(verData)):
-                    verMagError += self.magBrain.get_error(verData[i][0], verData[i][-1][0])
                     verDirError += self.dirBrain.get_error(verData[i][0], verData[i][-1][1])
+                    verMagError += self.magBrain.get_error(verData[i][0], verData[i][-1][0], heading = verData[i][-1][1])
                     
                 verMagError /= i
                 verDirError /= i
@@ -145,7 +149,7 @@ class neurnetAI(object):
                 
                 
                 t += 1
-                if verError < .22:
+                if verDirError < .0775:
                     break
             except KeyboardInterrupt:
                 break
@@ -156,7 +160,7 @@ class neurnetAI(object):
             
 if __name__ == "__main__":
     nnetAI = neurnetAI(1,1)
-    nnetAI.trainModel('good_data')
+    nnetAI.trainModel('data')
         
         
         

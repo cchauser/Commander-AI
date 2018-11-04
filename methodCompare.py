@@ -63,21 +63,21 @@ def evalMethod(results, controllerToEvaluate = "maxnet"):
 
 def compareMethod(redController, blueController, fileName):
     data = []
-    redSize = random.randint(2,2)
-    blueSize = random.randint(2,2)
+    c_eval = blueController
+    sizeArray = [random.randint(1,2), random.randint(1,2)]
     controllers = [redController, blueController]
-    engine = Engine(redSize, blueSize, redController, blueController, nnet_train = False)
+    engine = Engine(sizeArray, controllers, nnet_train = False)
     for i in range(20):
         try:
             results = engine.gameLoop()
-            container = [redSize, blueSize, redController, results[0][0], results[1][0],
+            container = [sizeArray[0], sizeArray[1], redController, results[0][0], results[1][0],
                          blueController, results[0][1], results[1][1]]
             
             if results[1][0] <= 0 and results[1][1] <= 0:
                 victor = "t"
-            elif results[1][0] < results[1][1]:
+            elif container[3]-container[4] > container[6]-container[7]:
                 victor = "b"
-            elif results[1][0] > results[1][1]:
+            elif container[3]-container[4] < container[6]-container[7]:
                 victor = "r"
             else:
                 victor = "t"
@@ -86,19 +86,17 @@ def compareMethod(redController, blueController, fileName):
             data.append(container)
             c1 = random.randint(0,1)
             c2 = c1 * -1 + 1
-            redController = controllers[c1]
-            blueController = controllers[c2]
+            controllers = [controllers[c1], controllers[c2]]
             
-            redSize = random.randint(1,2)
-            blueSize = random.randint(1,2)
-            engine.reset(redSize, blueSize, redController, blueController)
+            sizeArray = [random.randint(1,2), random.randint(1,2)]
+            engine.reset(sizeArray, controllers, allowRandom = True)
         except KeyboardInterrupt:
             break
         
     df = pd.DataFrame(data = data)
     df.to_csv("{}.csv".format(fileName), index = False, header = columns)
     
-    evalMethod(data)
+    evalMethod(data, c_eval)
 
 if __name__ == "__main__":
-    compareMethod("dumbai", "minmax", "dumb_v_minmax")
+    compareMethod("dumbai", "maxnet", "dumb_v_maxnet-d3")
