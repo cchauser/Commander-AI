@@ -11,6 +11,10 @@ In the Anaconda command prompt (program is called Anaconda Prompt) type "conda i
 
 To run Python using Anaconda, start the program called Anaconda Navigator (might take a minute to actually launch) and select an IDE. Then open the Python program and run it.
 
+______________________________________________________
+
 Libraries needed:
+
 Theano 1.x
+
 Pandas
