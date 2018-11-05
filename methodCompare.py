@@ -67,11 +67,11 @@ def compareMethod(redController, blueController, fileName):
     sizeArray = [random.randint(1,2), random.randint(1,2)]
     controllers = [redController, blueController]
     engine = Engine(sizeArray, controllers, nnet_train = False)
-    for i in range(20):
+    for i in range(100):
         try:
             results = engine.gameLoop()
-            container = [sizeArray[0], sizeArray[1], redController, results[0][0], results[1][0],
-                         blueController, results[0][1], results[1][1]]
+            container = [sizeArray[0], sizeArray[1], controllers[0], results[0][0], results[1][0],
+                         controllers[1], results[0][1], results[1][1]]
             
             if results[1][0] <= 0 and results[1][1] <= 0:
                 victor = "t"
@@ -99,4 +99,4 @@ def compareMethod(redController, blueController, fileName):
     evalMethod(data, c_eval)
 
 if __name__ == "__main__":
-    compareMethod("dumbai", "maxnet", "dumb_v_maxnet-d3")
+    compareMethod("randai", "maxnet", "rand_v_maxnet-d2")
