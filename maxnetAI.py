@@ -18,8 +18,8 @@ class maxnetAI(object):
     def __init__(self, magModel = 'magBrain', dirModel = 'dirBrain', recursionLimit = 2, angleStepSize = 5, calibrationSet = None):
         self.recursionLimit = recursionLimit
         self.angleStepSize = angleStepSize
-        self.magWindow = 3
-        self.dirWindow = 7
+        self.magWindow = 4
+        self.dirWindow = 8
         
         print("Loading magBrain")
         self.magBrain = LSTM(magModel, 1, 'mag')
@@ -250,7 +250,7 @@ class maxnetAI(object):
                 dmgTaken, dmgDone = self.calculateDamage(attDirection,
                                                          packet[i][1], packet[0][1],
                                                          Bonus, Range)
-            dmgDone = min(dmgDone, dmgDone * (40/packet[i][7])) + min(1, .5 / packet[i][7])
+            dmgDone = min(dmgDone, dmgDone * (40/packet[i][7])) + min(1, 10 / packet[i][7])
             dmgTaken = min(dmgTaken, dmgTaken * (40/packet[i][7]))
             
             dmgArray[i] += dmgDone
