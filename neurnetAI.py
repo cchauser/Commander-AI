@@ -14,7 +14,6 @@ import shelve
 
 from LSTM import LSTM
 
-random.seed(89894756)
 
 class neurnetAI(object):
     def __init__(self, magClasses, dirClasses):
