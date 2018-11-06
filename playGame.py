@@ -21,7 +21,7 @@ Turn & Movement:
     Some edge cases for inputs are currently handled but not all. The AIs will never abuse edge cases.
     
     Units move according to this formula:
-        delta = movementSpeed/magnitude
+        delta = movementSpeed * (magnitude/10)
         
 
 Combat:
@@ -75,7 +75,7 @@ AI:
 
 
 controller1 = 'human'
-controller2 = 'dumbai'
+controller2 = 'maxnet'
 
 armySizes = [randint(1,2), randint(1,2)]
 controllers = [controller1, controller2]
