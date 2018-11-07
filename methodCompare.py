@@ -99,4 +99,4 @@ def compareMethod(redController, blueController, fileName):
     evalMethod(data, c_eval)
 
 if __name__ == "__main__":
-    compareMethod("randai", "maxnet", "rand_v_maxnet-d2")
+    compareMethod("randai", "minmax", "rand_v_minmax")

@@ -70,13 +70,11 @@ class minmaxAI(object):
                 dmgTaken, dmgDone = self.calculateDamage(attDirection,
                                                          packet[i][1], packet[0][1],
                                                          Bonus, Range)
-            dmgDone = min(dmgDone, dmgDone * (40/packet[i][7])) + min(1, .5 / packet[i][7])
+            dmgDone = min(dmgDone, dmgDone * (40/packet[i][7])) + min(1, 10 / packet[i][7])
             dmgTaken = min(dmgTaken, dmgTaken * (40/packet[i][7]))
             
             dmgArray[i] += dmgDone
             dmgArray[0] += dmgTaken
-##        if dDone > 0:
-##            print("DAMAGE CALC", dDone - dTaken)
         Score =  np.sum(dmgArray[1:]) - dmgArray[0]
         return Score, np.sum(dmgArray[1:]), dmgArray
 
@@ -87,7 +85,7 @@ class minmaxAI(object):
                 endState = False
                 packet = deepcopy(originalPacket)
                 
-                direction = (direction % (360 / self.angleStepSize)) * self.angleStepSize
+                direction = direction * 10
                 dX, dY = self.get_dXdY(magnitude, direction, packet[0][3])
                 packet[0][4] += dX
                 packet[0][5] += dY
@@ -145,7 +143,7 @@ class minmaxAI(object):
                             packet[i][-1] = utilities.get_absolute_direction(packet[0], packet[i])
                            
                         #Subtract the opponent's best move from our best move's score
-                        Score -= self.maxMove(packet, lookAheadLimit, recursionStep + 1)[0]
+                        Score -= self.get_move(packet, lookAheadLimit, recursionStep + 1)[0]
                     
                 #If this is a leaf node there's no need to prepare for recursion. Just get the score
                 else:

@@ -15,7 +15,7 @@ from Utility import Utility
 utilities = Utility()
 
 class maxnetAI(object):
-    def __init__(self, magModel = 'magBrain', dirModel = 'dirBrain', recursionLimit = 1, angleStepSize = 5, calibrationSet = None):
+    def __init__(self, magModel = 'magBrain', dirModel = 'dirBrain', recursionLimit = 2, angleStepSize = 5, calibrationSet = None):
         self.recursionLimit = recursionLimit
         self.angleStepSize = angleStepSize
         self.magWindow = 4
@@ -251,7 +251,7 @@ class maxnetAI(object):
                                                          packet[i][1], packet[0][1],
                                                          Bonus, Range)
             if packet[i][7] > packet[0][2]:
-                dmgDone = dmgDone * 20/packet[i][7] + min(1, 10 / packet[i][7])
+                dmgDone = dmgDone * 30/packet[i][7] + min(1, 10 / packet[i][7])
                 dmgTaken = dmgTaken * (40/packet[i][7])
             
             dmgArray[i] += dmgDone

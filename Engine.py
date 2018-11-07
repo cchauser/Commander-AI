@@ -246,6 +246,7 @@ class Engine(object):
     def save_model(self):
         self.Brain.save_model()
     
+    #Sets the unit's headings to the average direction of the opponents.
     def adjustHeadingsForStartOfGame(self):
         for unit in self.turnOrder:
             totalHeading = 0
