@@ -15,11 +15,11 @@ from Utility import Utility
 utilities = Utility()
 
 class maxnetAI(object):
-    def __init__(self, magModel = 'magBrain', dirModel = 'dirBrain', recursionLimit = 2, angleStepSize = 5, calibrationSet = None):
+    def __init__(self, magModel = 'magBrain', dirModel = 'dirBrain', recursionLimit = 3, angleStepSize = 5, calibrationSet = None):
         self.recursionLimit = recursionLimit
         self.angleStepSize = angleStepSize
-        self.magWindow = 4
-        self.dirWindow = 8
+        self.magWindow = 3
+        self.dirWindow = 7
         
         print("Loading magBrain")
         self.magBrain = LSTM(magModel, 1, 'mag')
@@ -70,9 +70,113 @@ class maxnetAI(object):
     def get_move(self, packet):
         move = self.maxMove(packet, self.recursionLimit)
         return move[1:]
-            
+    
+    def adjustPacketForMove(self, packet, magnitude, direction):
+        
+        dX, dY = self.get_dXdY(magnitude, direction, packet[0][3])
+        packet[0][4] += dX
+        packet[0][5] += dY
+        packet[0][6] = direction
+        for i in range(1, len(packet)):
+            packet[i][-2] = utilities.get_distance(packet[0], packet[i])
+            packet[i][-1] = utilities.get_relative_direction(packet[0], packet[i])
+        return packet
+    
+    def adjustPacketForDamage(self, packet, Score, dmgArray):
+        #Update army strengths based on simulated damage. Get next opponent while we're iterating through
+        i = 0
+        nextOpponentPositionInPacket = len(packet) #Position of next opponent in packet
+        currTeam = packet[0][0]
+        currArmyDead = False
+        while i < len(packet):
+            packet[i][1] -= dmgArray[i]
+            if packet[i][1] <= 0:
+                if i == 0 and not currArmyDead:
+                    Score -= 10 #Penalize for losing an army
+                else:
+                    Score += 10 #Reward for destroying army
+                packet.remove(packet[i])
+                dmgArray = np.delete(dmgArray, i)
+                continue #Army is dead and deleted, go to next army
+            if currTeam != packet[i][0] and i < nextOpponentPositionInPacket:
+                nextOpponentPositionInPacket = i
+            i += 1
+        return packet, Score, nextOpponentPositionInPacket
+    
+    def adjustPacketForRecursion(self, packet, nextOpponent):
+        #Reorganize the packet so that the next unit to move is at the top
+        packet.append(packet[0])
+        packet.remove(packet[0])
+        packet.remove(nextOpponent)
+        packet.insert(0, nextOpponent)
+    
+        packet[0][-2] = 0
+        packet[0][-1] = 0
+        for i in range(1, len(packet)):
+            packet[i][-2] = utilities.get_distance(packet[0], packet[i])
+            packet[i][-1] = utilities.get_absolute_direction(packet[0], packet[i])
+        return packet
+    
+    def getEndStateAndScoreAdjustment(self, packet, Score, currTeam, nextOpPosPack):
+        currTeamDead = True
+        endState = False
+        nextOpponent = -1
+        for unit in packet:
+            if unit[0] == currTeam:
+                currTeamDead = False #Still have an army alive on the team
+                break
+        
+        if currTeamDead:
+            Score -= 100
+            endState = True
+        elif nextOpPosPack < len(packet):
+            nextOpponent = packet[nextOpPosPack]
+        elif len(packet) > 0:
+            #No opponents left, win game with this move
+            Score += 100
+            #I could return the move here but seeing as this is a military game, the best course is to make sure that the
+            #move returned also minimizes losses of my own side.
+            endState = True
+        else:
+            #Everybody is dead, no score increase but set as endState
+            endState = True
+        return Score, endState, nextOpponent
+    
+    #Returns a similar move to dumb ai, but a little smarter
+    def getAggressiveMove(self, packet):
+        currTeam = packet[0][0]
+        target = [0, np.inf] #Need a sample container for comparison.
+        #Pick out the weakest enemy and charge them
+        for unit in packet:
+            if currTeam != unit[0] and target[1] > unit[1]:
+                target = unit
+        direction = target[8]
+        distance = target[7]-10 #10 unit buffer
+        for mag in range(11):
+            newDist = (mag/10) * packet[0][3]
+            if newDist > distance:
+                if mag > 0:
+                    mag -= 1
+                break
+        return mag, direction
+                
+        
     def maxMove(self, originalPacket, lookAheadLimit, recursionStep = 0):
-        bestMove = [-np.inf, 0, 0]
+        currTeam = originalPacket[0][0]
+        
+        packet = deepcopy(originalPacket)
+        magnitude, direction = self.getAggressiveMove(packet)
+        
+        packet = self.adjustPacketForMove(packet,magnitude,direction)
+        Score, dmgArray = self.evalMove(packet)
+        packet, Score, nextOpponentPositionInPacket = self.adjustPacketForDamage(packet, Score, dmgArray)
+        Score, endState, nextOpponent = self.getEndStateAndScoreAdjustment(packet, Score, currTeam, nextOpponentPositionInPacket)
+        if not endState and recursionStep < lookAheadLimit:
+            packet = self.adjustPacketForRecursion(packet, nextOpponent)
+            Score -= self.maxMove(packet, lookAheadLimit, recursionStep + 1)[0]
+        bestMove = [Score, magnitude, direction]
+            
+        
         if self.magWindow != -1 or self.dirWindow != -1:
             nnetDir = int(round(self.dirBrain.nnet_move(originalPacket)/self.angleStepSize))
             dirRange = (nnetDir-self.dirWindow, nnetDir+self.dirWindow+1)
@@ -90,93 +194,31 @@ class maxnetAI(object):
                 packet = deepcopy(originalPacket)
                 
                 direction = (direction % (360 / self.angleStepSize)) * self.angleStepSize
-                dX, dY = self.get_dXdY(magnitude, direction, packet[0][3])
-                packet[0][4] += dX
-                packet[0][5] += dY
-                packet[0][6] = direction
-                for i in range(1, len(packet)):
-                    packet[i][-2] = utilities.get_distance(packet[0], packet[i])
-                    packet[i][-1] = utilities.get_relative_direction(packet[0], packet[i])
-
+                
+                packet = self.adjustPacketForMove(packet,magnitude,direction)
+                
                 if recursionStep < lookAheadLimit:
-                    Score, dTaken, dmgArray = self.evalMove(packet)
-                    #Update army strengths based on simulated damage. Get next opponent while we're iterating through
-                    i = 0
-                    nextOpponentInPacket = len(packet) #Position of next opponent in packet
-                    currTeam = packet[0][0]
-                    currArmyDead = False
-                    while i < len(packet):
-                        packet[i][1] -= dmgArray[i]
-                        if packet[i][1] <= 0:
-                            if i == 0 and not currArmyDead:
-                                Score -= 10 #Penalize for losing an army
-                            else:
-                                Score += 10 #Reward for destroying army
-                            packet.remove(packet[i])
-                            dmgArray = np.delete(dmgArray, i)
-                            continue #Army is dead and deleted, go to next army
-                        if currTeam != packet[i][0] and i < nextOpponentInPacket:
-                            nextOpponentInPacket = i
-                        i += 1
-                    if nextOpponentInPacket < len(packet):
-                        nextOpponent = packet[nextOpponentInPacket]
-                    elif len(packet) > 0:
-                        #No opponents left, win game with this move
-                        Score += 100
-                        #I could return the move here but seeing as this is a military game, the best course is to make sure that the
-                        #move returned also minimizes losses of my own side.
-                        endState = True
-                    else:
-                        #Everybody is dead, no score increase but set as endState
-                        endState = True
+                    Score, dmgArray = self.evalMove(packet)
+                    packet, Score, nextOpponentPositionInPacket = self.adjustPacketForDamage(packet, Score, dmgArray)
+                    
+                    Score, endState, nextOpponent = self.getEndStateAndScoreAdjustment(packet, Score, currTeam, nextOpponentPositionInPacket)
                         
                     #Prune
                     if Score < bestMove[0]:
                         continue
                     elif not endState:
-                        #Reorganize the packet so that the next unit to move is at the top
-                        packet.append(packet[0])
-                        packet.remove(packet[0])
-                        packet.remove(nextOpponent)
-                        packet.insert(0, nextOpponent)
-    
-                        packet[0][-2] = 0
-                        packet[0][-1] = 0
-                        for i in range(1, len(packet)):
-                            packet[i][-2] = utilities.get_distance(packet[0], packet[i])
-                            packet[i][-1] = utilities.get_absolute_direction(packet[0], packet[i])
-                           
+                        packet = self.adjustPacketForRecursion(packet, nextOpponent)
+                        
                         #Subtract the opponent's best move from our best move's score
                         Score -= self.maxMove(packet, lookAheadLimit, recursionStep + 1)[0]
                     
                 #If this is a leaf node there's no need to prepare for recursion. Just get the score
                 else:
-                    Score, dTaken, dmgArray = self.evalMove(packet)
+                    Score, dmgArray = self.evalMove(packet)
                     
-                    #Update army strengths based on simulated damage. Get next opponent while we're iterating through
-                    i = 0
-                    nextOpponentInPacket = len(packet)
-                    currTeam = packet[0][0]
-                    currArmyDead = False
-                    while i < len(packet):
-                        packet[i][1] -= dmgArray[i]
-                        if packet[i][1] <= 0:
-                            if i == 0 and not currArmyDead:
-                                Score -= 10 #Penalize for losing an army
-                            else:
-                                Score += 10 #Reward for destroying army
-                            #Don't delete here because this is a leaf node so just need to iterate through
-                            i += 1
-                            continue #Army is dead, go to next
-                        if currTeam != packet[i][0] and i < nextOpponentInPacket:
-                            nextOpponentInPacket = i
-                        i += 1
-                    if nextOpponentInPacket == len(packet) and len(packet) > 0:
-                        #No opponents left, win game with this move
-                        Score += 100
-                        #I could return the move here but seeing as this is a military game, the best course is to make sure that the
-                        #move returned also minimizes losses of my own side.
-                        endState = True
+                    packet, Score, _ = self.adjustPacketForDamage(packet, Score, dmgArray)
+                    
+                    Score, _, __ = self.getEndStateAndScoreAdjustment(packet, Score, currTeam, nextOpponentPositionInPacket) # Underscores are unused variables
 
                 if Score > bestMove[0]:
                     bestMove = [Score, magnitude, direction]
@@ -258,4 +300,4 @@ class maxnetAI(object):
             dmgArray[0] += dmgTaken
 #            bonusScore += ((Attacker * Bonus) * 2) - (Bonus - Attacker)
         Score =  np.sum(dmgArray[1:]) - dmgArray[0]# + bonusScore
-        return Score, np.sum(dmgArray[1:]), dmgArray
+        return Score, dmgArray
