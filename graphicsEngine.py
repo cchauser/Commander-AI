@@ -13,6 +13,8 @@ class graphicsEngine(object):
         self.Ramses.penup()
         self.Ramses.speed(0)
         for unit in red.get_armies():
+            if unit.strength <= 0:
+                continue
             self.Ramses.color("red")
             self.Ramses.goto(unit.location)
             self.Ramses.setheading(unit.heading)
@@ -21,6 +23,8 @@ class graphicsEngine(object):
             self.drawRangeCircle(unit.fireRange)
             
         for unit in blue.get_armies():
+            if unit.strength <= 0:
+                continue
             self.Ramses.color("blue")
             self.Ramses.goto(unit.location)
             self.Ramses.setheading(unit.heading)

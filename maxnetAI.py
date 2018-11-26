@@ -15,7 +15,7 @@ from Utility import Utility
 utilities = Utility()
 
 class maxnetAI(object):
-    def __init__(self, magModel = 'magBrain', dirModel = 'dirBrain', recursionLimit = 3, angleStepSize = 5, calibrationSet = None):
+    def __init__(self, magModel = 'magBrain', dirModel = 'dirBrain', recursionLimit = 1, angleStepSize = 10, calibrationSet = None):
         self.recursionLimit = recursionLimit
         self.angleStepSize = angleStepSize
         self.magWindow = 3
@@ -79,7 +79,7 @@ class maxnetAI(object):
         packet[0][6] = direction
         for i in range(1, len(packet)):
             packet[i][-2] = utilities.get_distance(packet[0], packet[i])
-            packet[i][-1] = utilities.get_relative_direction(packet[0], packet[i])
+            packet[i][-1] = utilities.get_absolute_direction(packet[0], packet[i])
         return packet
     
     def adjustPacketForDamage(self, packet, Score, dmgArray):

@@ -8,6 +8,7 @@ from dumbAI import dumbAI
 from randAI import randAI
 from neurnetAI import neurnetAI
 from maxnetAI import maxnetAI
+from SARSA import SARSA
 from Utility import Utility
 
 utilities = Utility()
@@ -44,6 +45,7 @@ class Engine(object):
             self.neurnetAI = neurnetAI(11, 36)
         if 'maxnet' in controllerArray:
             self.maxnetAI = maxnetAI(calibrationSet = 'data')
+        self.sarsa = SARSA()
         self.adjustHeadingsForStartOfGame()
         self.graphics.drawState(self.teamArray[0], self.teamArray[1]) #TODO: more than 2 team compatibility
 
@@ -101,9 +103,11 @@ class Engine(object):
                 Move = self.randAI.get_move()
             elif controller == "maxnet":
                 Move = self.maxnetAI.get_move(packet)
-            elif(controller == "human"):
+            elif controller == "human":
                 inputString = input("Move? ")
                 Move = utilities.parseHumanMove(inputString)
+            elif controller == 'sarsa':
+                Move = self.sarsa.get_move(packet)
             #Neural network
             elif controller == "neurnet":
                 if self.nnet_train:
@@ -177,7 +181,8 @@ class Engine(object):
                 #They're both in range of each other
                 Range = False 
             else:
-                Range = True
+                Range = True #One outranges the other
+                #Attacker is the one that outranges
                 if unit1.fireRange > unit2.fireRange:
                     Attacker = True
                 else:
@@ -249,26 +254,28 @@ class Engine(object):
     #Sets the unit's headings to the average direction of the opponents.
     def adjustHeadingsForStartOfGame(self):
         for unit in self.turnOrder:
-            totalHeading = 0
-            numUnits = 0
+            headingArray = []
             for otherUnit in self.turnOrder:
                 if otherUnit == unit:
                     continue
                 elif otherUnit.get_unitTeam() == unit.get_unitTeam():
                     continue
                 else:
-                    totalHeading += utilities.get_absolute_direction(unit, otherUnit)
-                    numUnits += 1
-            newHeading = (totalHeading // numUnits) + random.randint(-15,15) #Some randomness in initial heading 
-            unit.set_heading(newHeading)
+                    headingArray.append(utilities.get_absolute_direction(unit, otherUnit))
+            headingArray = np.asarray(headingArray)
+            if len(headingArray) > 1:
+                if np.max(headingArray) - np.min(headingArray) > 180:
+                    newHeading = (np.max(headingArray) + (((headingArray[1] - headingArray[0]) + 180) % 360 - 180)/2) + random.randint(-15,15)
+                else:
+                    newHeading = (np.max(headingArray) - (((headingArray[1] - headingArray[0]) + 180) % 360 - 180)/2) + random.randint(-15,15)
+            else:
+                newHeading = headingArray[0] + random.randint(-15,15)
+            unit.set_heading(int(newHeading))
                     
     def doOneTurn(self):
         packet = self.createDataPacket() #Minmax algorithm uses relative direction so need to use a packet that has relative direction
         
-        if packet[0][0] == 0:
-            controller = self.redController
-        elif packet[0][0] == 1:
-            controller = self.blueController
+        controller = self.Controllers[packet[0][0]]
             
         #Minmax
         if controller == "minmax":
@@ -279,21 +286,12 @@ class Engine(object):
         #random ai
         elif controller == "randai":
             AIMove = self.randAI.get_move()
+        #Maxnet AI
+        elif controller == "maxnet":
+            AIMove = self.maxnetAI.get_move(packet)
         #Neural network
         elif controller == "neurnet":
-            if self.nnet_train:
-                mmMove = self.minmaxAI.get_move(packet, 1)[1:]
-                #When the armies are very close or very far minmax tends to not move.
-                #dumbAI is used to give some variety when this happens
-                if mmMove[0] == 0:
-                    chance = random.randint(0,2)
-                    if chance != 0 or mmMove[1] == 0:
-                        mmMove = self.dumbAI.get_move(packet)
-                print(mmMove)
-                self.neurnetAI.learning_step(packet, mmMove)
-                AIMove = mmMove
-            else:
-                AIMove = self.neurnetAI.nnet_move(packet)
+            AIMove = self.neurnetAI.get_move(packet)
 
         magnitude = AIMove[0]
         direction = AIMove[1]

@@ -56,7 +56,7 @@ class LSTM(object):
             db.close()
     
             #Universal
-            I = np.random.uniform(-np.sqrt(1./self.hidden_dim), np.sqrt(1./self.hidden_dim), (9, self.hidden_dim))
+            I = np.random.uniform(-np.sqrt(1./self.hidden_dim), np.sqrt(1./self.hidden_dim), (5, self.hidden_dim))
             V = np.random.uniform(-np.sqrt(1./self.hidden_dim), np.sqrt(1./self.hidden_dim), (self.hidden_dim, numClasses))
             d = np.zeros(numClasses)
             
@@ -199,8 +199,8 @@ class LSTM(object):
         
         #Calculate nerual network output layer and error
         if self.bType == 'dir':
-            pred_error = T.sum((((y - pred_Prob) + .5) % 1 - .5)**2)
-#            pred_error = T.sum((y-pred_Prob)**2)
+#            pred_error = T.sum((((y - pred_Prob) + .5) % 1 - .5)**2)
+            pred_error = T.sum((y-pred_Prob)**2)
         else:
 #            pred_Prob = T.nnet.softmax(T.dot(gameState, self.V) + self.d)[0]#returns a 2d matrix with one row. so just take that row
             pred_error = T.sum((pred_Prob - y)**2)
@@ -334,6 +334,19 @@ class LSTM(object):
                      (self.vb_cand, vb_cand)
                      ])
 
+    def minimizePacket(self, packet):
+        for i in range(len(packet)):
+            packet[i].pop(2) #Remove fireRange
+            packet[i].pop(2) #Remove moveSpeed
+            packet[i].pop(2) #Remove x-coord
+            packet[i].pop(2) #Remove y-coord
+            packet[i][1] = int(round(packet[i][1])) #Round heading
+            packet[i][2] = int(round(packet[i][2])) #Round heading
+            packet[i][3] = int(round(packet[i][3])) #Round distance
+            packet[i][4] = int(round(packet[i][4])) #Round direction
+        return packet
+    
+    
     def mClass(self, y):
         return y / 10
 
@@ -348,9 +361,10 @@ class LSTM(object):
         else:
             raise Exception("UNKNOWN TYPE")
             
-        x_ = np.asarray(x)
+        x_ = self.minimizePacket(deepcopy(x))
+        x_ = np.asarray(x_)
         if heading:
-            x_[0][6] = heading
+            x_[0][2] = heading
         
         self.adam_step(x_, y_, learnRate, t)
         
@@ -364,6 +378,7 @@ class LSTM(object):
             return np.sqrt(self.ce_error(x_, y_))
     
     def get_error(self, x, y, heading = None):
+        x_ = self.minimizePacket(deepcopy(x))
         if self.bType == 'mag':
             y_ = self.mClass(y)
         elif self.bType == 'dir':
@@ -371,16 +386,17 @@ class LSTM(object):
         else:
             raise Exception("UNKNOWN TYPE")
             
-        x_ = np.asarray(x)
+        x_ = np.asarray(x_)
         if heading:
-            x_[0][6] = heading
+            x_[0][2] = heading
         
         return np.sqrt(self.ce_error(x_, y_))
 
     def nnet_move(self, packet, heading = None):
+        packet_ = self.minimizePacket(deepcopy(packet))
         if heading and self.bType == 'mag':
-            packet[0][6] = heading
-        packet_ = np.asarray(packet)
+            packet_[0][2] = heading
+        packet_ = np.asarray(packet_)
         move = self.get_move(packet_)[0][0]
         if self.bType == 'dir':
             return move * 360

@@ -159,7 +159,7 @@ class neurnetAI(object):
             
 if __name__ == "__main__":
     nnetAI = neurnetAI(1,1)
-    nnetAI.trainModel('data')
+    nnetAI.trainModel('sarsa')
         
         
         

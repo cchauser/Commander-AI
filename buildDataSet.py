@@ -11,6 +11,26 @@ import os
 from Engine import Engine
 from maxnetAI import maxnetAI
 
+def minimizePacket(packet):
+    for i in range(len(packet)):
+        packet[i].pop(2) #Remove fireRange
+        packet[i].pop(2) #Remove moveSpeed
+        packet[i].pop(2) #Remove x-coord
+        packet[i].pop(2) #Remove y-coord
+        packet[i][1] = int(round(packet[i][1])) #Round heading
+        packet[i][2] = int(round(packet[i][2])) #Round heading
+        packet[i][3] = int(round(packet[i][3])) #Round distance
+        packet[i][4] = int(round(packet[i][4])) #Round direction
+    return packet
+
+def getMoveFromQTable(Q):
+    action = np.argmax(Q)
+    angleStepSize = 360//(len(Q)//11)
+    magAndDirModifier = 360//angleStepSize
+    magnitude = action // magAndDirModifier
+    direction = (action % magAndDirModifier) * angleStepSize
+    return [magnitude, direction]
+
 def shuffle(data):
     new = []
     while len(data) > 0:
@@ -21,7 +41,7 @@ def shuffle(data):
 
 def mergeData(file1, file2):
     db = shelve.open("{0}/{0}DB".format(file1), "w")
-    data1 = db['data1']
+    data1 = db['data']
     
     db2 = shelve.open("{0}/{0}DB".format(file2), "r")
     data2 = db2['data']   
@@ -29,14 +49,14 @@ def mergeData(file1, file2):
     
 #    data = []
     
-#    for item in data1:
-#        if item in data2:
+#    for item in data2:
+#        if item in data1:
 #            continue
 #        data.append(item)
         
     data = data1 + data2
     
-    db['data2'] = data
+    db['data'] = data
     
     db.close()
     
@@ -72,17 +92,22 @@ def relabelData(fileName):
     
 
 def cleanData(fileName):
-    db = shelve.open("{0}/{0}DB".format(fileName), "w")
-    data = db['data2']
+    db = shelve.open("{0}/{0}DB".format(fileName), "r")
+    data = db['data']
+    db.close()
         
     #Count the number of classes for the data
     numMagData = np.zeros(11)
-    numDirData = np.zeros(36)
+    numDirData = np.zeros(72)
+    newData = []
+    for item in data:
+        newData.append([item[0], getMoveFromQTable(item[1])])
+    data = newData
     for item in data:
         numMagData[item[-1][0]] += 1
         #In case it rounds 356.x to 36, which is out of index range
         try:
-            numDirData[round(item[-1][1]/10)] += 1
+            numDirData[int(round(item[-1][1]/5))] += 1
         except:
             numDirData[0] += 1
     numMagTrain = round(np.min(numMagData) * .7)
@@ -96,16 +121,16 @@ def cleanData(fileName):
         nonrandomTrainData = []
         verData = []
         numMagTrainArray = np.zeros(11)
-        numDirTrainArray = np.zeros(36)
+        numDirTrainArray = np.zeros(72)
         numMagVerArray = np.zeros(11)
-        numDirVerArray = np.zeros(36)
+        numDirVerArray = np.zeros(72)
         zer = []
         for item in data:
             if item[-1][0] == 0:
                 zer.append(item)
                 continue
             try:
-                dirClass = round(item[-1][1]/10)
+                dirClass = int(round(item[-1][1]/5))
             except:
                 dirClass = 0
             if numMagTrainArray[item[-1][0]] < numMagTrain and numDirTrainArray[dirClass] < numDirTrain:
@@ -118,7 +143,7 @@ def cleanData(fileName):
                 numDirVerArray[dirClass] += 1
         for item in zer:
             try:
-                dirClass = round(item[-1][1]/10)
+                dirClass = int(round(item[-1][1]/5))
             except:
                 dirClass = 0
             if numMagTrainArray[item[-1][0]] < numMagTrain and numDirTrainArray[dirClass] < numDirTrain:
@@ -146,7 +171,7 @@ def cleanData(fileName):
             
     #Shuffle the training data
     trainData = shuffle(nonrandomTrainData)
-
+    db = shelve.open("{0}/{0}DB".format(fileName), "w")
     db['train'] = trainData
     db['ver'] = verData
     db.close()
@@ -157,12 +182,12 @@ def cleanData(fileName):
 def buildDataSet(fileName):
     data = []
     sizeArray = [random.randint(1,2), random.randint(1,2)]
-    controllers = ['minmax', 'minmax']
+    controllers = ['maxnet', 'maxnet']
     engine = Engine(sizeArray, controllers)
     numMag = [0] * 11
     numDir = [0] * 36
-    magTarget = 720
-    dirTarget = 220
+    magTarget = 900
+    dirTarget = 400
     
     for i in range(10000):
         try:
@@ -171,7 +196,10 @@ def buildDataSet(fileName):
                 turnData = engine.doOneTurn()
                 if numMag[turnData[-1][0]] < magTarget or numDir[int(turnData[-1][1]/10)] < dirTarget:
                     numMag[turnData[-1][0]] += 1
-                    numDir[int(turnData[-1][1]/10)] += 1
+                    try:
+                        numDir[int(round(turnData[-1][1]/10))] += 1
+                    except:
+                        numDir[0] += 1
                     data.append(turnData)
                 turn += 1
                 
@@ -199,8 +227,8 @@ def buildDataSet(fileName):
             break
     
 if __name__ == "__main__":
-#    buildDataSet('good_data5')
-#    mergeData('data', 'good_data')
+#    buildDataSet('maxnet_data2')
+#    mergeData('maxnet_data', 'maxnet_data2')
 #    relabelData('data')
     
-    cleanData('data')
+    cleanData('sarsa')

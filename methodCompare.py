@@ -68,6 +68,7 @@ def compareMethod(redController, blueController, fileName):
     controllers = [redController, blueController]
     engine = Engine(sizeArray, controllers, nnet_train = False)
     for i in range(100):
+        print("GAME:", i+1)
         try:
             results = engine.gameLoop()
             container = [sizeArray[0], sizeArray[1], controllers[0], results[0][0], results[1][0],
@@ -99,4 +100,4 @@ def compareMethod(redController, blueController, fileName):
     evalMethod(data, c_eval)
 
 if __name__ == "__main__":
-    compareMethod("randai", "minmax", "rand_v_minmax")
+    compareMethod("dumbai", "sarsa", "dumb_v_sarsa")
