@@ -46,8 +46,10 @@ class SARSA(object):
         #minimalPacket is empty (all armies dead)
         if len(minimalPacket) == 0:
             if not stateListToCheckAgainst:
+                self.stateList[0] = [[], 1, []]
                 return 0, 0
             else:
+                stateListToCheckAgainst[0] = [[], 1, []]
                 return 0, stateListToCheckAgainst
         else:
             hashValue = 1
@@ -74,7 +76,8 @@ class SARSA(object):
                 #Collision resolution
                 while minimalPacket != self.stateList[hashValue][2]:
                     numCollisions += 1
-                    hashValue += (numCollisions ** 2) # Quadratic collision resolution  
+                    hashValue += (numCollisions ** 2) # Quadratic collision resolution
+                self.stateList[hashValue][1] += 1
             except KeyError:
                 self.stateList[hashValue] = [deepcopy(state), 1, minimalPacket]
             return hashValue, numCollisions
@@ -120,7 +123,7 @@ class SARSA(object):
         dmgArray = self.getDmgArray(state)
         if deserter:
             dmgArray[0] = state[0][1] #Deserters are killed on sight
-        damageReward = np.sum(dmgArray[1:]) - dmgArray[0]
+        damageReward = (np.sum(dmgArray[1:]) * 1.5) - dmgArray[0]
         
         Reward = damageReward + distanceReward
         
@@ -139,24 +142,28 @@ class SARSA(object):
         moveProbability[bestMove] += (1. - self.eps)
         return moveProbability
     
-    def sarsa(self, iterations, initialState, epsilonProgression):
+    def softmaxAction(self, state):
+        moveProbability = np.exp(self.Q[state]/(500/self.stateList[state][1]))/np.sum(np.exp(self.Q[state]/(500/self.stateList[state][1])))
+        return moveProbability
+    
+    def sarsa(self, iterations, initialState, epsilonProgression = None):
         initialStateIndex, numCol = self.getIndexForState(initialState)
-        maxTurns = 5
+        maxTurns = 10
         ttime = 0
         times = 1
         totCol = 0
-        for i in range(1,iterations+1):
+        for i in range(iterations):
             
             currentState = self.stateList[initialStateIndex][0]
             self.stateList[initialStateIndex][1] += 1
             currentStateIndex = initialStateIndex
             
-            moveProbability = self.greedyAction(currentStateIndex)
+            moveProbability = self.softmaxAction(currentStateIndex)
             currentAction = np.random.choice(np.arange(self.actionSpaceSize), p = moveProbability)
             
             turns = 0
             while True:
-                self.eps = epsilonProgression[turns]
+#                self.eps = epsilonProgression[turns]
                 nextState, Reward, endState = self.doAction(deepcopy(currentState), currentAction)
                 
                 sameTeam = True
@@ -173,7 +180,7 @@ class SARSA(object):
                 ttime += time.time() - s
                 times += 1
                 
-                moveProbability = self.greedyAction(nextStateIndex)
+                moveProbability = self.softmaxAction(nextStateIndex)
                 nextAction = np.random.choice(np.arange(self.actionSpaceSize), p = moveProbability)
                 
                 if sameTeam:
@@ -182,7 +189,6 @@ class SARSA(object):
                     target = Reward - self.gamma * self.Q[nextStateIndex][nextAction] #Otherwise subtract the reward of the opponent
                 error = target - self.Q[currentStateIndex][currentAction]
                 self.Q[currentStateIndex][currentAction] = self.Q[currentStateIndex][currentAction] + self.alpha * error
-                self.stateList[currentStateIndex][1] += 1
                 
                 if endState or turns >= maxTurns:# or ttime > 10 or (stalemate and self.checkStalemate(currentState) and self.checkStalemate(nextState)):
                     break
@@ -197,20 +203,25 @@ class SARSA(object):
     
     def get_move(self, packet):
         hashValue, _ = self.getIndexForState(packet)
-        if self.stateList[hashValue][1] < 800:
-            eps = [[.75, .75, .75, .75, .75, .75],
-                   [.5, .75, .75, .75, .75, .75],
-                   [.25, .5, .75, .75, .75, .75],
-                   [.1, .25, .5, .75, .75, .75],
-                   [.05, .1, .25, .5, .75, .75],
-                   [.01, .05, .1, .25, .5, .75]]
-           
-            iters = [500, 500, 500, 500, 500, 500]
-            for i in range(len(eps)):
-                self.sarsa(iters[i], deepcopy(packet), eps[i])
-        else:
-            print("SEEN THIS BEFORE")
-        
+        while(np.max(self.softmaxAction(hashValue)) < .9):
+            if self.stateList[hashValue][1] > 20000:
+                break
+            self.sarsa(2500, deepcopy(packet))
+#        if self.stateList[hashValue][1] < 800:
+#            eps = [[.75, .75, .75, .75, .75, .75],
+#                   [.5, .75, .75, .75, .75, .75],
+#                   [.25, .5, .75, .75, .75, .75],
+#                   [.1, .25, .5, .75, .75, .75],
+#                   [.05, .1, .25, .5, .75, .75],
+#                   [.01, .05, .1, .25, .5, .75]]
+#           
+#            iters = [500, 500, 500, 500, 500, 500]
+#            for i in range(len(eps)):
+#                self.sarsa(iters[i], deepcopy(packet), eps[i])
+#        else:
+#            print("SEEN THIS BEFORE")
+#        print(self.Q[hashValue], np.max(self.Q[hashValue]), self.stateList[hashValue][1])
+#        input(np.max(self.softmaxAction(hashValue)))
         action = np.argmax(self.Q[hashValue])
         mmag, mdir = self.getMagAndDirFromIndex(action)
         self.syncMemories()
@@ -219,7 +230,7 @@ class SARSA(object):
     def syncMemories(self):
         indexList = []
         for index in self.stateList:
-            if self.stateList[index][1] >= 100:
+            if np.max(self.softmaxAction(index)) > .6:
                 indexList.append(index)   
         data = []
         for index in indexList:
@@ -241,7 +252,7 @@ class SARSA(object):
         print("\nFREEING SPACE")
         usedIndices = []
         for index in self.stateList:
-            if self.stateList[index][1] > limit and (np.argmax(self.Q[index]) != 0 or np.argmin(self.Q[index]) != 0):
+            if np.max(self.softmaxAction(index)) > .1:
                 usedIndices.append(index)
         print(len(usedIndices), "indices saved")
         newStateList = {}

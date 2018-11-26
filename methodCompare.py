@@ -91,6 +91,7 @@ def compareMethod(redController, blueController, fileName):
             
             sizeArray = [random.randint(1,2), random.randint(1,2)]
             engine.reset(sizeArray, controllers, allowRandom = True)
+            engine.sarsa.freeSpace(5)
         except KeyboardInterrupt:
             break
         
