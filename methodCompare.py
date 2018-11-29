@@ -60,6 +60,7 @@ def evalMethod(results, controllerToEvaluate = "maxnet"):
     print("\nEquivalent Winrate:", (equalWins/equalGames), "\nWins, Games:", equalWins, equalGames)
     print("\nUnderdog Winrate:", (underdogWins/underdogGames), "\nWins, Games:", underdogWins, underdogGames)
 
+random.seed(500123)
 
 def compareMethod(redController, blueController, fileName):
     data = []

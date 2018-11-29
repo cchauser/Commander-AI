@@ -29,8 +29,8 @@ class SARSA(object):
         try:
             self.loadMemories()
         except:
-            print("FALIED TO LOAD")
-            pass
+            print("FAILED TO LOAD")
+            
         
     def loadMemories(self):
         db = shelve.open('sarsa/sarsaDB', 'r')
@@ -90,6 +90,7 @@ class SARSA(object):
                 stateListToCheckAgainst[hashValue] = [deepcopy(state), 1, minimalPacket]
             return hashValue, stateListToCheckAgainst
     
+    
     def getMagAndDirFromIndex(self, index):
         magnitude = index // self.magAndDirModifier
         direction = (index % self.magAndDirModifier) * self.angleStepSize
@@ -123,7 +124,7 @@ class SARSA(object):
         dmgArray = self.getDmgArray(state)
         if deserter:
             dmgArray[0] = state[0][1] #Deserters are killed on sight
-        damageReward = (np.sum(dmgArray[1:]) * 1.5) - dmgArray[0]
+        damageReward = (np.sum(dmgArray[1:]) * 1.25) - (dmgArray[0] * 1.)
         
         Reward = damageReward + distanceReward
         
@@ -143,17 +144,16 @@ class SARSA(object):
         return moveProbability
     
     def softmaxAction(self, state):
-        moveProbability = np.exp(self.Q[state]/(500/self.stateList[state][1]))/np.sum(np.exp(self.Q[state]/(500/self.stateList[state][1])))
+        moveProbability = np.exp(self.Q[state]/(1500/self.stateList[state][1]))/np.sum(np.exp(self.Q[state]/(1500/self.stateList[state][1])))
         return moveProbability
     
-    def sarsa(self, iterations, initialState, epsilonProgression = None):
+    def sarsa(self, iterations, initialState):
         initialStateIndex, numCol = self.getIndexForState(initialState)
         maxTurns = 10
         ttime = 0
         times = 1
         totCol = 0
         for i in range(iterations):
-            
             currentState = self.stateList[initialStateIndex][0]
             self.stateList[initialStateIndex][1] += 1
             currentStateIndex = initialStateIndex
@@ -163,7 +163,6 @@ class SARSA(object):
             
             turns = 0
             while True:
-#                self.eps = epsilonProgression[turns]
                 nextState, Reward, endState = self.doAction(deepcopy(currentState), currentAction)
                 
                 sameTeam = True
@@ -203,10 +202,24 @@ class SARSA(object):
     
     def get_move(self, packet):
         hashValue, _ = self.getIndexForState(packet)
-        while(np.max(self.softmaxAction(hashValue)) < .9):
+        try:
+            self.stateList[-1]
+        except:
+            self.stateList[-1] = [[], 1, []]
+        nStateIndex = -1
+        while np.max(self.softmaxAction(hashValue)) < .9:# and self.stateList[nStateIndex][1] < 500):
             if self.stateList[hashValue][1] > 20000:
                 break
-            self.sarsa(2500, deepcopy(packet))
+            self.sarsa(1000, deepcopy(packet))
+            print(np.max(self.softmaxAction(hashValue)))
+#            nextState, _, _ = self.doAction(deepcopy(packet), np.argmax(self.Q[hashValue]))
+#            nStateIndex, _ = self.getIndexForState(nextState)
+#        nextState, _, _ = self.doAction(deepcopy(packet), np.argmax(self.Q[hashValue]))
+#        nStateIndex, _ = self.getIndexForState(nextState)  
+#        if np.max(self.softmaxAction(nStateIndex)) < .9:
+#            print(nextState)
+#            print(self.Q[nStateIndex], self.stateList[nStateIndex][1], np.max(self.Q[nStateIndex]))
+            
 #        if self.stateList[hashValue][1] < 800:
 #            eps = [[.75, .75, .75, .75, .75, .75],
 #                   [.5, .75, .75, .75, .75, .75],
@@ -239,13 +252,12 @@ class SARSA(object):
         try:
             db = shelve.open("sarsa/sarsaDB", "n")
             db['data'] = data
-            db.close()
         except KeyboardInterrupt:
             db = shelve.open("sarsa/sarsaDB", "n")
             db['data'] = data
             db.close()
-            raise KeyboardInterrupt
-        db.close()
+        finally:
+            db.close()
         
     
     def freeSpace(self, limit):

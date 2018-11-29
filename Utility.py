@@ -116,13 +116,13 @@ class Utility(object):
                 break
         
         if currTeamDead:
-            Score -= 100
+            Score -= 20
             endState = True
         elif nextOpPosPack < len(packet):
             nextOpponent = packet[nextOpPosPack]
         elif len(packet) > 0:
             #No opponents left, win game with this move
-            Score += 100
+            Score += 20
             #I could return the move here but seeing as this is a military game, the best course is to make sure that the
             #move returned also minimizes losses of my own side.
             endState = True
