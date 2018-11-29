@@ -15,11 +15,11 @@ from Utility import Utility
 utilities = Utility()
 
 class maxnetAI(object):
-    def __init__(self, magModel = 'magBrain', dirModel = 'dirBrain', recursionLimit = 1, angleStepSize = 10, calibrationSet = None):
+    def __init__(self, magModel = 'magBrain', dirModel = 'dirBrain', recursionLimit = 2, angleStepSize = 5, calibrationSet = None):
         self.recursionLimit = recursionLimit
         self.angleStepSize = angleStepSize
         self.magWindow = 3
-        self.dirWindow = 7
+        self.dirWindow = 8
         
         print("Loading magBrain")
         self.magBrain = LSTM(magModel, 1, 'mag')

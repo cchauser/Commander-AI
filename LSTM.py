@@ -361,7 +361,7 @@ class LSTM(object):
         else:
             raise Exception("UNKNOWN TYPE")
             
-        x_ = self.minimizePacket(deepcopy(x))
+#        x_ = self.minimizePacket(deepcopy(x))
         x_ = np.asarray(x_)
         if heading:
             x_[0][2] = heading
@@ -378,7 +378,7 @@ class LSTM(object):
             return np.sqrt(self.ce_error(x_, y_))
     
     def get_error(self, x, y, heading = None):
-        x_ = self.minimizePacket(deepcopy(x))
+#        x_ = self.minimizePacket(deepcopy(x))
         if self.bType == 'mag':
             y_ = self.mClass(y)
         elif self.bType == 'dir':
@@ -393,10 +393,10 @@ class LSTM(object):
         return np.sqrt(self.ce_error(x_, y_))
 
     def nnet_move(self, packet, heading = None):
-        packet_ = self.minimizePacket(deepcopy(packet))
+#        packet_ = self.minimizePacket(deepcopy(packet))
         if heading and self.bType == 'mag':
-            packet_[0][2] = heading
-        packet_ = np.asarray(packet_)
+            packet[0][2] = heading
+        packet_ = np.asarray(packet)
         move = self.get_move(packet_)[0][0]
         if self.bType == 'dir':
             return move * 360

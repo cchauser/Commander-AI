@@ -24,7 +24,7 @@ class SARSA(object):
         self.Q = defaultdict(lambda: np.zeros(self.actionSpaceSize))
         self.eps = 1.
         self.gamma = 1.
-        self.alpha = .1
+        self.alpha = .5
         
         try:
             self.loadMemories()
@@ -124,7 +124,7 @@ class SARSA(object):
         dmgArray = self.getDmgArray(state)
         if deserter:
             dmgArray[0] = state[0][1] #Deserters are killed on sight
-        damageReward = (np.sum(dmgArray[1:]) * 1.25) - (dmgArray[0] * 1.)
+        damageReward = (np.sum(dmgArray[1:]) * 1.75) - (dmgArray[0] * 1.)
         
         Reward = damageReward + distanceReward
         
@@ -149,7 +149,7 @@ class SARSA(object):
     
     def sarsa(self, iterations, initialState):
         initialStateIndex, numCol = self.getIndexForState(initialState)
-        maxTurns = 10
+        maxTurns = 5
         ttime = 0
         times = 1
         totCol = 0
@@ -159,7 +159,10 @@ class SARSA(object):
             currentStateIndex = initialStateIndex
             
             moveProbability = self.softmaxAction(currentStateIndex)
-            currentAction = np.random.choice(np.arange(self.actionSpaceSize), p = moveProbability)
+            try:
+                currentAction = np.random.choice(np.arange(self.actionSpaceSize), p = moveProbability)
+            except ValueError:
+                currentAction = np.argmax(moveProbability) # nan case
             
             turns = 0
             while True:
@@ -180,7 +183,10 @@ class SARSA(object):
                 times += 1
                 
                 moveProbability = self.softmaxAction(nextStateIndex)
-                nextAction = np.random.choice(np.arange(self.actionSpaceSize), p = moveProbability)
+                try:
+                    nextAction = np.random.choice(np.arange(self.actionSpaceSize), p = moveProbability)
+                except:
+                    nextAction = np.argmax(moveProbability)
                 
                 if sameTeam:
                     target = Reward + self.gamma * self.Q[nextStateIndex][nextAction] #If a teammate is moving next turn then add the reward from their move
@@ -202,39 +208,11 @@ class SARSA(object):
     
     def get_move(self, packet):
         hashValue, _ = self.getIndexForState(packet)
-        try:
-            self.stateList[-1]
-        except:
-            self.stateList[-1] = [[], 1, []]
-        nStateIndex = -1
-        while np.max(self.softmaxAction(hashValue)) < .9:# and self.stateList[nStateIndex][1] < 500):
-            if self.stateList[hashValue][1] > 20000:
+        while np.max(self.softmaxAction(hashValue)) < .95:# and self.stateList[nStateIndex][1] < 500):
+            if self.stateList[hashValue][1] > 10000:
                 break
             self.sarsa(1000, deepcopy(packet))
             print(np.max(self.softmaxAction(hashValue)))
-#            nextState, _, _ = self.doAction(deepcopy(packet), np.argmax(self.Q[hashValue]))
-#            nStateIndex, _ = self.getIndexForState(nextState)
-#        nextState, _, _ = self.doAction(deepcopy(packet), np.argmax(self.Q[hashValue]))
-#        nStateIndex, _ = self.getIndexForState(nextState)  
-#        if np.max(self.softmaxAction(nStateIndex)) < .9:
-#            print(nextState)
-#            print(self.Q[nStateIndex], self.stateList[nStateIndex][1], np.max(self.Q[nStateIndex]))
-            
-#        if self.stateList[hashValue][1] < 800:
-#            eps = [[.75, .75, .75, .75, .75, .75],
-#                   [.5, .75, .75, .75, .75, .75],
-#                   [.25, .5, .75, .75, .75, .75],
-#                   [.1, .25, .5, .75, .75, .75],
-#                   [.05, .1, .25, .5, .75, .75],
-#                   [.01, .05, .1, .25, .5, .75]]
-#           
-#            iters = [500, 500, 500, 500, 500, 500]
-#            for i in range(len(eps)):
-#                self.sarsa(iters[i], deepcopy(packet), eps[i])
-#        else:
-#            print("SEEN THIS BEFORE")
-#        print(self.Q[hashValue], np.max(self.Q[hashValue]), self.stateList[hashValue][1])
-#        input(np.max(self.softmaxAction(hashValue)))
         action = np.argmax(self.Q[hashValue])
         mmag, mdir = self.getMagAndDirFromIndex(action)
         self.syncMemories()

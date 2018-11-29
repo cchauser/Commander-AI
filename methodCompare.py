@@ -102,4 +102,4 @@ def compareMethod(redController, blueController, fileName):
     evalMethod(data, c_eval)
 
 if __name__ == "__main__":
-    compareMethod("dumbai", "sarsa", "dumb_v_sarsa")
+    compareMethod("dumbai", "maxnet", "dumb_v_maxnet")
