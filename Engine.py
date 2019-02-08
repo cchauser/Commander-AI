@@ -38,14 +38,6 @@ class Engine(object):
                 self.turnOrder.append(self.teamArray[i][armySizeArray[i]])
                 armySizeArray[i] -= 1
 
-        self.minmaxAI = minmaxAI()
-        self.dumbAI = dumbAI()
-        self.randAI = randAI()
-        if 'neurnet' in controllerArray:
-            self.neurnetAI = neurnetAI(11, 36)
-        if 'maxnet' in controllerArray:
-            self.maxnetAI = maxnetAI(calibrationSet = 'data')
-        self.sarsa = SARSA()
         self.adjustHeadingsForStartOfGame()
         self.graphics.drawState(self.teamArray[0], self.teamArray[1]) #TODO: more than 2 team compatibility
 
@@ -92,37 +84,7 @@ class Engine(object):
             
             controller = self.Controllers[packet[0][0]]
                 
-            #Minmax
-            if controller == "minmax":
-                Move = self.minmaxAI.get_move(packet)[1:]
-            #dumbAI
-            elif controller == "dumbai":
-                Move = self.dumbAI.get_move(packet)
-            #random ai
-            elif controller == "randai":
-                Move = self.randAI.get_move()
-            elif controller == "maxnet":
-                Move = self.maxnetAI.get_move(packet)
-            elif controller == "human":
-                inputString = input("Move? ")
-                Move = utilities.parseHumanMove(inputString)
-            elif controller == 'sarsa':
-                Move = self.sarsa.get_move(packet)
-            #Neural network
-            elif controller == "neurnet":
-                if self.nnet_train:
-                    mmMove = self.minmaxAI.get_move(packet, 1)[1:]
-                    #When the armies are very close or very far minmax tends to not move.
-                    #dumbAI is used to give some variety when this happens
-                    if mmMove[0] == 0:
-                        chance = random.randint(0,2)
-                        if chance != 0 or mmMove[1] == 0:
-                            mmMove = self.dumbAI.get_move(packet)
-                    print(mmMove)
-                    self.neurnetAI.learning_step(packet, mmMove)
-                    Move = mmMove
-                else:
-                    Move = self.neurnetAI.get_move(packet)
+            Move = controller.get_move(packet)
 
             print(Move)
             magnitude = Move[0]
