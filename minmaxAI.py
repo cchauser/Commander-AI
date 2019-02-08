@@ -1,10 +1,11 @@
 from copy import deepcopy
 import numpy as np
 from Utility import Utility
+from AI import AI
 
 utilities = Utility()
 
-class minmaxAI(object):
+class minmaxAI(AI):
     def __init__(self):
         pass
 

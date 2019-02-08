@@ -1,6 +1,8 @@
 import random
 
-class randAI(object):
+from AI import AI
+
+class randAI(AI):
     def __init__(self):
         pass
 

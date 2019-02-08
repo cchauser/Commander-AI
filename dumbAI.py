@@ -2,8 +2,9 @@
 # [Team, Str, fireRange, moveSpeed, x, y, heading, distance, direction]
 #   0     1       2         3       4  5     6        7          8
 
+from AI import AI
 
-class dumbAI(object):
+class dumbAI(AI):
     def __init__(self):
         pass
 

@@ -12,10 +12,11 @@ import time
 from Utility import Utility
 from collections import defaultdict
 from copy import deepcopy
+from AI import AI
 
 utilities = Utility()
 
-class SARSA(object):
+class SARSA(AI):
     def __init__(self, angleStepSize = 5):
         self.angleStepSize = angleStepSize
         self.magAndDirModifier = 360//angleStepSize
