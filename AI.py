@@ -9,6 +9,9 @@ class AI():
     def get_move(self, packet):
         raise Exception("Should be implemented by child. This is the abstract")
         
+    def free_space(self):
+        pass #To be overridden by child classes
+        
         
         
 #Testing

@@ -1,6 +1,9 @@
 import pandas as pd
 import random
 
+from randAI import randAI
+from SARSA import SARSA
+
 from Engine import Engine
 
 columns = ["Num_Red_Armies", "Num_Blue_Armies", "Red_Controller", "Init_Red_Str",
@@ -92,7 +95,6 @@ def compareMethod(redController, blueController, fileName):
             
             sizeArray = [random.randint(1,2), random.randint(1,2)]
             engine.reset(sizeArray, controllers, allowRandom = True)
-            engine.sarsa.freeSpace(5)
         except KeyboardInterrupt:
             break
         
@@ -102,4 +104,4 @@ def compareMethod(redController, blueController, fileName):
     evalMethod(data, c_eval)
 
 if __name__ == "__main__":
-    compareMethod("dumbai", "maxnet", "dumb_v_maxnet")
+    compareMethod(randAI(), SARSA(), "test")

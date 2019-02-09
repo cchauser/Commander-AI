@@ -9,6 +9,7 @@ import numpy as np
 import shelve
 import random
 import time
+import os
 from Utility import Utility
 from collections import defaultdict
 from copy import deepcopy
@@ -29,12 +30,16 @@ class SARSA(AI):
         
         try:
             self.loadMemories()
-        except:
-            print("FAILED TO LOAD")
+        except Exception as E:
+            print("FAILED TO LOAD:\n{}".format(E))
             
         
     def loadMemories(self):
-        db = shelve.open('sarsa/sarsaDB', 'r')
+        try:
+            db = shelve.open('sarsa/sarsaDB', 'r')
+        except:
+            os.makedirs('sarsa')
+            db = shelve.open('sarsa/sarsaDB', 'n')
         data = db['data']
         db.close()
         for i in range(len(data)):
@@ -239,7 +244,7 @@ class SARSA(AI):
             db.close()
         
     
-    def freeSpace(self, limit):
+    def free_space(self):
         print("\nFREEING SPACE")
         usedIndices = []
         for index in self.stateList:
@@ -251,7 +256,6 @@ class SARSA(AI):
         for index in usedIndices:
             hashValue, _ = self.getIndexForState(self.stateList[index][0], newStateList)
             newStateList[hashValue] = self.stateList[index]
-#            newStateList[hashValue][1] = self.stateList[index][1]
             newQ[hashValue] = self.Q[index]
             
         print("SPACE FREED. REDUCED MEMORY USE BY", (1 - (len(newStateList)/len(self.stateList)))*100, "%")

@@ -42,6 +42,8 @@ class Engine(object):
         self.graphics.drawState(self.teamArray[0], self.teamArray[1]) #TODO: more than 2 team compatibility
 
     def reset(self, armySizeArray, controllerArray, allowRandom = False):
+        for controller in self.Controllers:
+            controller.free_space()
         
         if allowRandom:
             randomSpawn = random.randint(0,1) #Random spawns occur when value != 0
