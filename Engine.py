@@ -88,7 +88,7 @@ class Engine(object):
                 
             Move = controller.get_move(packet)
 
-            print(Move)
+            print(Move[:2])
             magnitude = Move[0]
             direction = Move[1]
 

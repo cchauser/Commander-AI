@@ -80,7 +80,7 @@ class minmaxAI(AI):
         return Score, np.sum(dmgArray[1:]), dmgArray
 
     def get_move(self, originalPacket, lookAheadLimit=1, recursionStep = 0):
-        bestMove = [-np.inf, 0, 0]
+        bestMove = [0, 0, -np.inf]
         for magnitude in range(11):
             for direction in range(36):
                 endState = False
@@ -128,7 +128,7 @@ class minmaxAI(AI):
                         endState = True
                         
                     #Prune
-                    if Score < bestMove[0]:
+                    if Score < bestMove[2]:
                         continue
                     elif not endState:
                         #Reorganize the packet so that the next unit to move is at the top
@@ -144,7 +144,7 @@ class minmaxAI(AI):
                             packet[i][-1] = utilities.get_absolute_direction(packet[0], packet[i])
                            
                         #Subtract the opponent's best move from our best move's score
-                        Score -= self.get_move(packet, lookAheadLimit, recursionStep + 1)[0]
+                        Score -= self.get_move(packet, lookAheadLimit, recursionStep + 1)[2]
                     
                 #If this is a leaf node there's no need to prepare for recursion. Just get the score
                 else:
@@ -175,8 +175,8 @@ class minmaxAI(AI):
                         #move returned also minimizes losses of my own side.
                         endState = True
 
-                if Score > bestMove[0]:
-                    bestMove = [Score, magnitude, direction]
+                if Score > bestMove[2]:
+                    bestMove = [magnitude, direction, Score]
 
 
         return bestMove
