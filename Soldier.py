@@ -1,6 +1,9 @@
 import numpy as np
 
-from Unit import *
+from Unit import Unit
+from Utility import Utility
+
+utilities = Utility()
 
 class Soldier(Unit):
     def __init__(self, unitID, unitTeam, strength, location, heading):
@@ -43,7 +46,7 @@ class Soldier(Unit):
         return [self.__unitTeam, self.strength, self.fireRange, self.moveSpeed,
                 self.location[0], self.location[1], self.heading]
 
-    def move(self, magnitude, direction):
+    def move(self, magnitude, direction, walls):
         distance = (min(magnitude, 10) / 10) * self.moveSpeed
         direction = direction % 360
         
@@ -52,8 +55,25 @@ class Soldier(Unit):
         dY = distance * np.cos(tempHead)
 
         dLocation = [int(dX), int(dY)]
+        
+        #Prevent moving through walls
+        #Other units may define this differently so it's handled within the Soldier class
+        #All different unit sub-classes need to handle walls themselves
+        proposedLocation = self.location + dLocation
+        intersect, intersectLocation = utilities.checkForIntersect(walls, self.location, proposedLocation, True)
+        print(intersect, intersectLocation)
+        if intersect:
+            distance = utilities.get_distance(self.location, intersectLocation) - 3 #leaves a 3 unit buffer between the unit and the wall
+            print(distance)
+            dX = distance * np.sin(tempHead)
+            dY = distance * np.cos(tempHead)
+            dLocation = [int(dX), int(dY)]
+            
+        
+        print(proposedLocation)
         self.heading = direction
         self.location += dLocation
+        print(self.location)
 
 
 

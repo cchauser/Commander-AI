@@ -13,10 +13,9 @@ import random
 import shelve
 
 from LSTM import LSTM
-from AI import AI
 
 
-class neurnetAI(AI):
+class neurnetAI(object):
     def __init__(self, magClasses, dirClasses):
         self.lRate = .005
         print("Loading magBrain")

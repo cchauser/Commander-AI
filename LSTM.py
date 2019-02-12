@@ -395,7 +395,7 @@ class LSTM(object):
     def nnet_move(self, packet, heading = None):
 #        packet_ = self.minimizePacket(deepcopy(packet))
         if heading and self.bType == 'mag':
-            packet[0][2] = heading
+            packet[0][6] = heading
         packet_ = np.asarray(packet)
         move = self.get_move(packet_)[0][0]
         if self.bType == 'dir':

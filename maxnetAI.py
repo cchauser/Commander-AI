@@ -11,11 +11,10 @@ import shelve
 from copy import deepcopy
 from LSTM import LSTM
 from Utility import Utility
-from AI import AI
 
 utilities = Utility()
 
-class maxnetAI(AI):
+class maxnetAI(object):
     def __init__(self, magModel = 'magBrain', dirModel = 'dirBrain', recursionLimit = 2, angleStepSize = 5, calibrationSet = None):
         self.recursionLimit = recursionLimit
         self.angleStepSize = angleStepSize
