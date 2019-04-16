@@ -7,17 +7,11 @@ class graphicsEngine(object):
         self.Ramses.speed(0)
         self.Ramses.mode('logo')
 
-    def drawState(self, walls, red, blue):
+    def drawState(self, red, blue):
         self.Ramses.clearscreen()
         self.Ramses.hideturtle()
         self.Ramses.penup()
         self.Ramses.speed(0)
-        for wall in walls:
-            self.Ramses.color("black")
-            self.Ramses.goto(wall[0])
-            self.Ramses.pendown()
-            self.Ramses.goto(wall[1])
-            self.Ramses.penup()
         for unit in red.get_armies():
             if unit.strength <= 0:
                 continue
@@ -26,7 +20,7 @@ class graphicsEngine(object):
             self.Ramses.setheading(unit.heading)
             self.Ramses.stamp()
             self.Ramses.write("{} | {} | {}".format(unit.get_unitID(), unit.strength, unit.heading))
-#            self.drawRangeCircle(unit.fireRange)
+            self.drawRangeCircle(unit.fireRange)
             
         for unit in blue.get_armies():
             if unit.strength <= 0:
@@ -36,7 +30,7 @@ class graphicsEngine(object):
             self.Ramses.setheading(unit.heading)
             self.Ramses.stamp()
             self.Ramses.write("{} | {} | {}".format(unit.get_unitID(), unit.strength, unit.heading))
-#            self.drawRangeCircle(unit.fireRange)
+            self.drawRangeCircle(unit.fireRange)
             
         self.Ramses.hideturtle()
 

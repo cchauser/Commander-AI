@@ -8,7 +8,7 @@ class dumbAI(AI):
     def __init__(self):
         pass
 
-    def get_move(self, packet, _unused):
+    def get_move(self, packet):
 
         i = 1
         #Find next army on a different team

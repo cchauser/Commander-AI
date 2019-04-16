@@ -6,7 +6,7 @@ Created on Fri Feb  8 17:40:20 2019
 """
 
 class AI():
-    def get_move(self, packet, walls):
+    def get_move(self, packet):
         raise Exception("Should be implemented by child. This is the abstract")
         
     def free_space(self):

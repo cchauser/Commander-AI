@@ -37,15 +37,14 @@ class Engine(object):
                     continue
                 self.turnOrder.append(self.teamArray[i][armySizeArray[i]])
                 armySizeArray[i] -= 1
-            
+
         self.adjustHeadingsForStartOfGame()
-        self.Walls = self.generateWalls(2, 30, [[-20,-20],[20,20]])
-        self.graphics.drawState(self.Walls, self.teamArray[0], self.teamArray[1]) #TODO: more than 2 team compatibility
+        self.graphics.drawState(self.teamArray[0], self.teamArray[1]) #TODO: more than 2 team compatibility
 
     def reset(self, armySizeArray, controllerArray, allowRandom = False):
         for controller in self.Controllers:
             controller.free_space()
-            
+        
         if allowRandom:
             randomSpawn = random.randint(0,1) #Random spawns occur when value != 0
         else:
@@ -72,7 +71,7 @@ class Engine(object):
                 armySizeArray[i] -= 1
                 
         self.adjustHeadingsForStartOfGame()
-        self.graphics.drawState(self.Walls, self.teamArray[0], self.teamArray[1]) #TODO: more than 2 team compatibility
+        self.graphics.drawState(self.teamArray[0], self.teamArray[1]) #TODO: more than 2 team compatibility
 
     def gameLoop(self):
         elapsedTurns = 0
@@ -87,18 +86,18 @@ class Engine(object):
             
             controller = self.Controllers[packet[0][0]]
                 
-            Move = controller.get_move(packet, self.Walls)
+            Move = controller.get_move(packet)
 
             print(Move[:2])
             magnitude = Move[0]
             direction = Move[1]
 
-            self.turnOrder[0].move(magnitude, direction, self.Walls)
+            self.turnOrder[0].move(magnitude, direction)
 
             isDead = self.calculateCombat(self.turnOrder[0])
             if not isDead:
                 self.prepNextTurn()
-            self.graphics.drawState(self.Walls, self.teamArray[0], self.teamArray[1]) #TODO: more than 2 team compatibility
+            self.graphics.drawState(self.teamArray[0], self.teamArray[1]) #TODO: more than 2 team compatibility
             elapsedTurns += 1
 
 
@@ -134,17 +133,14 @@ class Engine(object):
                 attDmgTaken = 0
             return defDmgTaken, attDmgTaken
 
-        def checkCombatModifiers(unit1, unit2):
-            
-            lineOfSightBlocked, _ = utilities.checkForIntersect(self.Walls, unit1.location, unit2.location)
-            
+        def check_Attacker_Bonus_Range(unit1, unit2):
             #Check if unit1 is attacking unit2
             if utilities.get_relative_direction(unit1, unit2) < utilities.get_relative_direction(unit2, unit1):
                 Attacker = True
             else:
                 Attacker = False
 
-            dist = utilities.get_distance(unit1.location, unit2.location)
+            dist = utilities.get_distance(unit1, unit2)
             if unit1.fireRange > dist and unit2.fireRange > dist:
                 #They're both in range of each other
                 Range = False 
@@ -163,7 +159,7 @@ class Engine(object):
             else:
                 Bonus = False
                 
-            return lineOfSightBlocked, Attacker, Bonus, Range
+            return Attacker, Bonus, Range
 
         for i in range(len(self.turnOrder)):
             if unit == self.turnOrder[i] or unit.get_unitTeam() == self.turnOrder[i].get_unitTeam():
@@ -172,11 +168,9 @@ class Engine(object):
                 continue
             if unit.strength <= 0:
                 break
-            dist = utilities.get_distance(unit.location, self.turnOrder[i].location)
+            dist = utilities.get_distance(unit, self.turnOrder[i])
             if (dist < unit.fireRange or dist < self.turnOrder[i].fireRange):
-                lineOfSightBlocked, Attacker, Bonus, Range = checkCombatModifiers(unit, self.turnOrder[i])
-                if lineOfSightBlocked:
-                    continue
+                Attacker, Bonus, Range = check_Attacker_Bonus_Range(unit, self.turnOrder[i])
                 if Attacker:
                     attDirection = utilities.get_relative_direction(self.turnOrder[i], unit)
                     dmgDone, dmgTaken = calculateDamage(attDirection,
@@ -207,7 +201,7 @@ class Engine(object):
         i = 1
         while len(dataPacket) < len(self.turnOrder):
             temp = self.turnOrder[i].get_packet()
-            temp += [utilities.get_distance(unit.location, self.turnOrder[i].location),
+            temp += [utilities.get_distance(unit, self.turnOrder[i]),
                      utilities.get_absolute_direction(unit, self.turnOrder[i])]
             dataPacket.append(temp)
             i += 1
@@ -224,38 +218,23 @@ class Engine(object):
     #Sets the unit's headings to the average direction of the opponents.
     def adjustHeadingsForStartOfGame(self):
         for unit in self.turnOrder:
-            directionArray = []
+            headingArray = []
             for otherUnit in self.turnOrder:
                 if otherUnit == unit:
                     continue
                 elif otherUnit.get_unitTeam() == unit.get_unitTeam():
                     continue
                 else:
-                    direction = utilities.get_absolute_direction(unit, otherUnit)
-                    if direction > 270:
-                        direction -= 360
-                    directionArray.append(direction)
-            directionArray = np.asarray(directionArray)
-            newHeading = np.average(directionArray) + random.randint(-15,15)
+                    headingArray.append(utilities.get_absolute_direction(unit, otherUnit))
+            headingArray = np.asarray(headingArray)
+            if len(headingArray) > 1:
+                if np.max(headingArray) - np.min(headingArray) > 180:
+                    newHeading = (np.max(headingArray) + (((headingArray[1] - headingArray[0]) + 180) % 360 - 180)/2) + random.randint(-15,15)
+                else:
+                    newHeading = (np.max(headingArray) - (((headingArray[1] - headingArray[0]) + 180) % 360 - 180)/2) + random.randint(-15,15)
+            else:
+                newHeading = headingArray[0] + random.randint(-15,15)
             unit.set_heading(int(newHeading))
-            
-            
-    def generateWalls(self, numWalls, maxLength, spawnArea):
-        wallContainer = []
-        while len(wallContainer) < numWalls:
-            firstPoint = (random.randint(spawnArea[0][0], spawnArea[1][0]), random.randint(spawnArea[0][1], spawnArea[1][1]))
-            length = random.randint(10, maxLength)
-            direction = random.randint(0,359)
-            dX, dY = utilities.get_dXdY(10, direction, length) #Repurposed this function. Gets the change in x and y for the direction and length
-            secondPoint = (firstPoint[0] + dX, firstPoint[1] + dY)
-            if len(wallContainer) > 0:
-                intersect, _ = utilities.checkForIntersect(wallContainer, firstPoint, secondPoint)
-                if intersect:
-                    continue
-            wallContainer.append([firstPoint, secondPoint])
-        return wallContainer
-    
-
                     
     def doOneTurn(self):
         packet = self.createDataPacket() #Minmax algorithm uses relative direction so need to use a packet that has relative direction
@@ -289,8 +268,3 @@ class Engine(object):
         
         return [packet, AIMove]
         
-if __name__ == '__main__':
-    random.seed(5446489)
-    e = Engine([1,1], ['minmax', 'sarsa'])
-    x = e.gameLoop()
-    print(x)

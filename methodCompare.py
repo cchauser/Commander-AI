@@ -1,9 +1,10 @@
 import pandas as pd
 import random
 
-from Engine import Engine
-from minmaxAI import minmaxAI
+from randAI import randAI
 from SARSA import SARSA
+
+from Engine import Engine
 
 columns = ["Num_Red_Armies", "Num_Blue_Armies", "Red_Controller", "Init_Red_Str",
            "Final_Red_Str", "Blue_Controller", "Init_Blue_Str", "Final_Blue_Str",
@@ -62,12 +63,12 @@ def evalMethod(results, controllerToEvaluate = "maxnet"):
     print("\nEquivalent Winrate:", (equalWins/equalGames), "\nWins, Games:", equalWins, equalGames)
     print("\nUnderdog Winrate:", (underdogWins/underdogGames), "\nWins, Games:", underdogWins, underdogGames)
 
-random.seed(521523)
+random.seed(500123)
 
 def compareMethod(redController, blueController, fileName):
     data = []
     c_eval = blueController
-    sizeArray = [random.randint(1,3), random.randint(1,3)]
+    sizeArray = [random.randint(1,2), random.randint(1,2)]
     controllers = [redController, blueController]
     engine = Engine(sizeArray, controllers, nnet_train = False)
     for i in range(100):
@@ -92,8 +93,8 @@ def compareMethod(redController, blueController, fileName):
             c2 = c1 * -1 + 1
             controllers = [controllers[c1], controllers[c2]]
             
-            sizeArray = [random.randint(1,3), random.randint(1,3)]
-            engine.reset(sizeArray, controllers, allowRandom = False)
+            sizeArray = [random.randint(1,2), random.randint(1,2)]
+            engine.reset(sizeArray, controllers, allowRandom = True)
         except KeyboardInterrupt:
             break
         
@@ -103,4 +104,4 @@ def compareMethod(redController, blueController, fileName):
     evalMethod(data, c_eval)
 
 if __name__ == "__main__":
-    compareMethod(minmaxAI(), SARSA(), "walls_minmax_v_sarsa3")
+    compareMethod(randAI(), SARSA(), "test")

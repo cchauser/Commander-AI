@@ -28,22 +28,24 @@ class SARSA(AI):
         self.gamma = 1.
         self.alpha = .5
         
-        self.Walls = []
-        self.wallHash = -1
+        try:
+            self.loadMemories()
+        except Exception as E:
+            print("FAILED TO LOAD:\n{}".format(E))
             
         
-    def loadMemories(self, wallHash):
+    def loadMemories(self):
         try:
-            path = 'sarsa/{0}/{0}DB'.format(wallHash)
-            db = shelve.open(path, 'r')
-            data = db['data']
-            db.close()
-            for i in range(len(data)):
-                hashValue, _ = self.getIndexForState(data[i][0])
-                self.stateList[hashValue][1] = data[i][2]
-                self.Q[hashValue] = data[i][1]
+            db = shelve.open('sarsa/sarsaDB', 'r')
         except:
-            os.makedirs('sarsa/{0}'.format(wallHash))
+            os.makedirs('sarsa')
+            db = shelve.open('sarsa/sarsaDB', 'n')
+        data = db['data']
+        db.close()
+        for i in range(len(data)):
+            hashValue, _ = self.getIndexForState(data[i][0])
+            self.stateList[hashValue][1] = data[i][2]
+            self.Q[hashValue] = data[i][1]
         
     def getIndexForState(self, state, stateListToCheckAgainst = None):
         minimalPacket = self.minimizePacket(deepcopy(state)) #Don't want to override the packet so deepcopy
@@ -112,7 +114,7 @@ class SARSA(AI):
             if state[i][0] != state[0][0]: #They're on different teams
                 distanceReward += state[i][7]
                 
-        state = utilities.adjustPacketForMove(state, magnitude, direction, self.Walls)
+        state = utilities.adjustPacketForMove(state, magnitude, direction)
         
         i = 0
         deserter = False
@@ -152,9 +154,11 @@ class SARSA(AI):
         return moveProbability
     
     def sarsa(self, iterations, initialState):
-        initialStateIndex, _ = self.getIndexForState(initialState)
+        initialStateIndex, numCol = self.getIndexForState(initialState)
         maxTurns = 5
-        
+        ttime = 0
+        times = 1
+        totCol = 0
         for i in range(iterations):
             currentState = self.stateList[initialStateIndex][0]
             self.stateList[initialStateIndex][1] += 1
@@ -178,38 +182,24 @@ class SARSA(AI):
                     #Enters here if all armies are dead
                     pass
                 
-                nextStateIndex, _ = self.getIndexForState(nextState)
-                moveProbability = self.softmaxAction(nextStateIndex)
+                s = time.time()
+                nextStateIndex, col = self.getIndexForState(nextState)
+                totCol += col
+                ttime += time.time() - s
+                times += 1
                 
+                moveProbability = self.softmaxAction(nextStateIndex)
                 try:
                     nextAction = np.random.choice(np.arange(self.actionSpaceSize), p = moveProbability)
-                except ValueError:
-                    nextAction = np.argmax(moveProbability) # nan case
+                except:
+                    nextAction = np.argmax(moveProbability)
                 
                 if sameTeam:
                     target = Reward + self.gamma * self.Q[nextStateIndex][nextAction] #If a teammate is moving next turn then add the reward from their move
                 else:
                     target = Reward - self.gamma * self.Q[nextStateIndex][nextAction] #Otherwise subtract the reward of the opponent
-
                 error = target - self.Q[currentStateIndex][currentAction]
-                self.Q[currentStateIndex][currentAction] += self.alpha * error
-#                if currentAction < self.magAndDirModifier:
-#                    self.Q[currentStateIndex][currentAction+self.magAndDirModifier] += (self.alpha ** 2) * error
-#                elif currentAction >= self.actionSpaceSize - self.magAndDirModifier:
-#                    self.Q[currentStateIndex][currentAction-self.magAndDirModifier] += (self.alpha ** 2) * error
-#                else:
-#                    self.Q[currentStateIndex][currentAction+self.magAndDirModifier] += (self.alpha ** 2) * error
-#                    self.Q[currentStateIndex][currentAction-self.magAndDirModifier] += (self.alpha ** 2) * error
-                    
-                if currentAction%self.magAndDirModifier == self.magAndDirModifier-1:
-                    self.Q[currentStateIndex][currentAction-1] += (self.alpha ** 2) * error
-                    self.Q[currentStateIndex][currentAction-self.magAndDirModifier-1] += (self.alpha ** 2) * error
-                elif currentAction%self.magAndDirModifier == 0:
-                    self.Q[currentStateIndex][currentAction+1] += (self.alpha ** 2) * error
-                    self.Q[currentStateIndex][currentAction+self.magAndDirModifier-1] += (self.alpha ** 2) * error
-                else:
-                    self.Q[currentStateIndex][currentAction+1] += (self.alpha ** 2) * error
-                    self.Q[currentStateIndex][currentAction-1] += (self.alpha ** 2) * error
+                self.Q[currentStateIndex][currentAction] = self.Q[currentStateIndex][currentAction] + self.alpha * error
                 
                 if endState or turns >= maxTurns:# or ttime > 10 or (stalemate and self.checkStalemate(currentState) and self.checkStalemate(nextState)):
                     break
@@ -219,52 +209,42 @@ class SARSA(AI):
                 currentAction = nextAction
                 turns += 1
         
-
-    def get_move(self, packet, walls):
-        self.loadWalls(walls)
+#        print("\nCollisions/hashes:", totCol, times, "\nTime spent hashing:", ttime)
+#        print("Average hash time:", ttime/times)
+    
+    def get_move(self, packet):
         hashValue, _ = self.getIndexForState(packet)
-        self.sarsa(5000, deepcopy(packet))
-        i = 0
-        while np.max(self.softmaxAction(hashValue)) < .95 and i < 10:# and self.stateList[nStateIndex][1] < 500):
+        while np.max(self.softmaxAction(hashValue)) < .95:# and self.stateList[nStateIndex][1] < 500):
+            if self.stateList[hashValue][1] > 10000:
+                break
             self.sarsa(1000, deepcopy(packet))
-            i += 1
+            print(np.max(self.softmaxAction(hashValue)))
         action = np.argmax(self.Q[hashValue])
         mmag, mdir = self.getMagAndDirFromIndex(action)
-        self.syncMemories(self.wallHash)
+        self.syncMemories()
         return [mmag, mdir]
     
-    def syncMemories(self, wallHash):
-        path = 'sarsa/{0}/{0}DB'.format(wallHash)
+    def syncMemories(self):
         indexList = []
         for index in self.stateList:
-            if np.max(self.softmaxAction(index)) > .1:
+            if np.max(self.softmaxAction(index)) > .6:
                 indexList.append(index)   
         data = []
         for index in indexList:
             data.append([self.stateList[index][0], self.Q[index], self.stateList[index][1]])
         
         try:
-            db = shelve.open(path, "n")
+            db = shelve.open("sarsa/sarsaDB", "n")
             db['data'] = data
-            db.close()
         except KeyboardInterrupt:
-            db.close()
-            db = shelve.open(path, "n")
+            db = shelve.open("sarsa/sarsaDB", "n")
             db['data'] = data
+            db.close()
+        finally:
             db.close()
         
-    #This function sets the wall hash value and loads the Q-tables associated with the wall configuration
-    def loadWalls(self, walls):
-        wallHash = 1
-        for wall in walls:
-            for coord in wall:
-                wallHash *= (coord[0] + coord[1] + 1)
-        if wallHash != self.wallHash:
-            self.loadMemories(wallHash)
-            self.Walls = walls
-            self.wallHash = wallHash
     
-    def freeSpace(self, limit):
+    def free_space(self):
         print("\nFREEING SPACE")
         usedIndices = []
         for index in self.stateList:
@@ -276,7 +256,6 @@ class SARSA(AI):
         for index in usedIndices:
             hashValue, _ = self.getIndexForState(self.stateList[index][0], newStateList)
             newStateList[hashValue] = self.stateList[index]
-#            newStateList[hashValue][1] = self.stateList[index][1]
             newQ[hashValue] = self.Q[index]
             
         print("SPACE FREED. REDUCED MEMORY USE BY", (1 - (len(newStateList)/len(self.stateList)))*100, "%")
@@ -301,36 +280,33 @@ class SARSA(AI):
             return False
                 
     
-    def checkCombatModifiers(self, unit1, unit2, walls):
-            
-            lineOfSightBlocked, _ = utilities.checkForIntersect(self.Walls, [unit1[4],unit1[5]], [unit2[4], unit2[5]])
-            
-            #Check if unit1 is attacking unit2
-            if utilities.get_relative_direction(unit1, unit2) < utilities.get_relative_direction(unit2, unit1):
+    def check_Attacker_Bonus_Range(self, unit1, unit2):
+        #Check if unit1 is attacking unit2
+        if utilities.get_relative_direction(unit1, unit2) < utilities.get_relative_direction(unit2, unit1):
+            Attacker = True
+        else:
+            Attacker = False
+    
+        dist = utilities.get_distance(unit1, unit2)
+        if unit1[2] > dist and unit2[2] > dist:
+            #They're both in range of each other
+            Range = False 
+        else:
+            Range = True #One outranges the other
+            #Attacker is the one that outranges
+            if unit1[2] > unit2[2]:
                 Attacker = True
             else:
                 Attacker = False
 
-            dist = utilities.get_distance([unit1[4],unit1[5]], [unit2[4], unit2[5]])
-            if unit1[2] > dist and unit2[2] > dist:
-                #They're both in range of each other
-                Range = False 
-            else:
-                Range = True #One outranges the other
-                #Attacker is the one that outranges
-                if unit1[2] > unit2[2]:
-                    Attacker = True
-                else:
-                    Attacker = False
-                    
-            if not Attacker and utilities.get_relative_direction(unit1, unit2) > 30 and utilities.get_relative_direction(unit2, unit1) < 90:
-                Bonus = True
-            elif Attacker and utilities.get_relative_direction(unit2, unit1) > 30 and utilities.get_relative_direction(unit1, unit2) < 90:
-                Bonus = True
-            else:
-                Bonus = False
-                
-            return lineOfSightBlocked, Attacker, Bonus, Range
+        if not Attacker and utilities.get_relative_direction(unit1, unit2) > 30 and utilities.get_relative_direction(unit2, unit1) < 90:
+            Bonus = True
+        elif Attacker and utilities.get_relative_direction(unit2, unit1) > 30 and utilities.get_relative_direction(unit1, unit2) < 90:
+            Bonus = True
+        else:
+            Bonus = False
+
+        return Attacker, Bonus, Range
 
     def calculateDamage(self, attDirection, attStr, defStr, Bonus, defOutOfRange):
             #Bonus is the attacking bonus for flanking
@@ -356,9 +332,7 @@ class SARSA(AI):
                 continue #Same team
             if packet[0][2] < packet[i][7] and packet[i][2] < packet[i][7]:
                 continue #Both out of range
-            lineOfSightBlocked, Attacker, Bonus, Range = self.checkCombatModifiers(packet[0], packet[i], self.Walls)
-            if lineOfSightBlocked:
-                continue
+            Attacker, Bonus, Range = self.check_Attacker_Bonus_Range(packet[0], packet[i])
             if Attacker:
                 attDirection = utilities.get_relative_direction(packet[i], packet[0])
                 dmgDone, dmgTaken = self.calculateDamage(attDirection,
@@ -377,29 +351,15 @@ class SARSA(AI):
     
     #Takes out all of the unnecessary information and rounds all floats to the nearest integer.
     #Preps packet for hashing to the state list
-#    def minimizePacket(self, packet):
-#        for i in range(len(packet)):
-#            packet[i].pop(2) #Remove fireRange
-#            packet[i].pop(2) #Remove moveSpeed
-#            packet[i].pop(2) #Remove x-coord
-#            packet[i].pop(2) #Remove y-coord
-#            packet[i][1] = int(round(packet[i][1])) #Round strength (not necessary but keeps it neat)
-#            packet[i][2] = int(round(packet[i][2])) #Round heading
-#            packet[i][3] = int(round(packet[i][3])) #Round distance
-#            packet[i][4] = int(round(packet[i][4])) #Round direction
-#
-#        return packet
-    
     def minimizePacket(self, packet):
         for i in range(len(packet)):
             packet[i].pop(2) #Remove fireRange
             packet[i].pop(2) #Remove moveSpeed
             packet[i].pop(2) #Remove x-coord
             packet[i].pop(2) #Remove y-coord
-            packet[i][1] = int(round(packet[i][1])) #Round strength (not necessary but keeps it neat)
-            packet[i][2] = int(round(packet[i][2]/5)*5) % 360#Round heading
-            packet[i][3] = int(round(packet[i][3]/2)*2) #Round distance
-            packet[i][4] = int(round(packet[i][4]/5)*5) % 360#Round direction
+            packet[i][2] = int(round(packet[i][2])) #Round heading
+            packet[i][3] = int(round(packet[i][3])) #Round distance
+            packet[i][4] = int(round(packet[i][4])) #Round direction
         return packet
 
 def shuffle(data):

@@ -20,9 +20,9 @@ class Team(object):
         for i in range(size):
             newSoldierStrength = possibleStrengths[randint(0,2)]
             if randomSpawn == 0:
-                spawnCoordinates = spawn + [randint(-60,60), randint(0,20) * negOrPos]
+                spawnCoordinates = spawn + [randint(-30,30), randint(0,10) * negOrPos]
             else:
-                spawnCoordinates = spawn + [randint(-60,60), randint(-20,20)]
+                spawnCoordinates = spawn + [randint(-30,30), randint(-20,20)]
 
             self.armies.append(Soldier(unitID_counter, teamID, newSoldierStrength, spawnCoordinates, 0)) #TODO: Fix deprecated spawnHeading
             unitID_counter += 1
