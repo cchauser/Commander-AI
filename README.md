@@ -1,5 +1,7 @@
 # Commander-AI
 
+This is the version that was submitted as my final project.
+
 Details in the playGame.py file on how to play the game (Not yet updated for the AI abstract class)
 
 Highly recommend using Anaconda Python 3.5 distribution. It should come with (and configure) everything you need to run this project.
