@@ -193,25 +193,8 @@ class SARSA(AI):
 
                 error = target - self.Q[currentStateIndex][currentAction]
                 self.Q[currentStateIndex][currentAction] += self.alpha * error
-#                if currentAction < self.magAndDirModifier:
-#                    self.Q[currentStateIndex][currentAction+self.magAndDirModifier] += (self.alpha ** 2) * error
-#                elif currentAction >= self.actionSpaceSize - self.magAndDirModifier:
-#                    self.Q[currentStateIndex][currentAction-self.magAndDirModifier] += (self.alpha ** 2) * error
-#                else:
-#                    self.Q[currentStateIndex][currentAction+self.magAndDirModifier] += (self.alpha ** 2) * error
-#                    self.Q[currentStateIndex][currentAction-self.magAndDirModifier] += (self.alpha ** 2) * error
-                    
-                if currentAction%self.magAndDirModifier == self.magAndDirModifier-1:
-                    self.Q[currentStateIndex][currentAction-1] += (self.alpha ** 2) * error
-                    self.Q[currentStateIndex][currentAction-self.magAndDirModifier-1] += (self.alpha ** 2) * error
-                elif currentAction%self.magAndDirModifier == 0:
-                    self.Q[currentStateIndex][currentAction+1] += (self.alpha ** 2) * error
-                    self.Q[currentStateIndex][currentAction+self.magAndDirModifier-1] += (self.alpha ** 2) * error
-                else:
-                    self.Q[currentStateIndex][currentAction+1] += (self.alpha ** 2) * error
-                    self.Q[currentStateIndex][currentAction-1] += (self.alpha ** 2) * error
                 
-                if endState or turns >= maxTurns:# or ttime > 10 or (stalemate and self.checkStalemate(currentState) and self.checkStalemate(nextState)):
+                if endState or turns >= maxTurns:
                     break
                 
                 currentState = nextState
